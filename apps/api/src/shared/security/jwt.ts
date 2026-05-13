@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "../../config/env.js";
 import { AppError } from "../errors/app-error.js";
-import { ErrorCode } from "../errors/error-codes.js";
+import { ErrorCode } from "../errors/error-catalog.js";
 
 type JwtHeader = {
   alg: "HS256";

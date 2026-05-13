@@ -2,6 +2,7 @@ import type { Response } from "express";
 
 export type ApiSuccessResponse<TData> = {
   data: TData;
+  meta?: unknown;
 };
 
 export type ApiErrorResponse = {
@@ -12,12 +13,12 @@ export type ApiErrorResponse = {
   };
 };
 
-export const ok = <TData>(response: Response, data: TData): void => {
-  response.json({ data } satisfies ApiSuccessResponse<TData>);
+export const ok = <TData>(response: Response, data: TData, meta?: unknown): void => {
+  response.json({ data, ...(meta ? { meta } : {}) } satisfies ApiSuccessResponse<TData>);
 };
 
-export const created = <TData>(response: Response, data: TData): void => {
-  response.status(201).json({ data } satisfies ApiSuccessResponse<TData>);
+export const created = <TData>(response: Response, data: TData, meta?: unknown): void => {
+  response.status(201).json({ data, ...(meta ? { meta } : {}) } satisfies ApiSuccessResponse<TData>);
 };
 
 export const fail = (
@@ -27,4 +28,3 @@ export const fail = (
 ): void => {
   response.status(statusCode).json({ error } satisfies ApiErrorResponse);
 };
-

@@ -16,6 +16,7 @@ File này là bộ rule chung cho project. Mỗi lần bắt đầu một prompt
 - Không đặt business logic trong controller/route handler.
 - Mọi logic nghiệp vụ phải nằm trong service/use-case/domain layer phù hợp.
 - Code cần dễ test, dễ đọc, chia theo tầng rõ ràng.
+- Mục tiêu foundation: khi làm feature mới, phần common đã có sẵn; dev chỉ tập trung vào business rule, schema, query và UI flow của feature.
 
 ## 2. Multi-Tenant
 
@@ -44,30 +45,50 @@ File này là bộ rule chung cho project. Mỗi lần bắt đầu một prompt
 - Repository không import Prisma singleton trực tiếp, trừ khi có lý do đặc biệt được ghi chú.
 - Code dùng chung như JWT/password/hash/response/error đặt trong `shared`, không đặt trong một chức năng riêng.
 
-## 4. API & Controller
+## 4. API Feature Flow
+
+- Mỗi API feature nên đi theo luồng cố định:
+  1. `schemas`: định nghĩa input validation bằng Zod.
+  2. `routes`: khai báo path, middleware, controller, wrap controller bằng `asyncHandler`.
+  3. `controllers`: parse body/params/query bằng helper chung, gọi service, trả `ok` hoặc `created`.
+  4. `services`: xử lý business logic, tenant isolation, transaction boundary.
+  5. `repositories`: nhận `DbClient`, thực hiện Prisma query hoặc raw SQL an toàn.
+  6. `types`: type dùng chung cho request context/result nếu cần.
+- Không bỏ qua layer để đi nhanh nếu feature có business logic thật.
+- Nếu API chỉ là health/static endpoint, có thể đơn giản hơn nhưng vẫn trả response qua helper chung.
+
+## 5. API & Controller
 
 - Controller chỉ nhận request, validate input, gọi service/use-case, trả response.
 - Controller không viết `try/catch` lặp lại. Route async phải dùng handler chung như `asyncHandler(...)`, middleware sync có thể dùng `safeHandler(...)`.
 - Validate input bằng schema rõ ràng.
-- Controller phải dùng helper validation chung như `parseBody(request, schema)` thay vì gọi schema parse rải rác theo kiểu tự phát.
-- Response format cần thống nhất trong toàn project.
+- Controller phải dùng helper validation chung như `parseBody`, `parseParams`, `parseQuery` thay vì gọi schema parse rải rác theo kiểu tự phát.
+- Success response format thống nhất:
+  - `{ data }`
+  - `{ data, meta }` cho list/pagination/filter summary nếu cần.
+- Error response format thống nhất:
+  - `{ error: { code, message, details? } }`
 - Error handling cần thống nhất, không throw string/raw error ra client.
-- Mỗi lỗi phải có một `ErrorCode` và message/status trong error catalog tập trung. Khi thêm lỗi mới, thêm vào catalog trước rồi mới sử dụng trong service/middleware/controller.
+- Mỗi lỗi phải có một `ErrorCode` và message/status trong `shared/errors/error-catalog.ts`. Khi thêm lỗi mới, thêm vào catalog trước rồi mới sử dụng trong service/middleware/controller.
+- Không tạo file message/error code phân tán theo feature nếu lỗi có thể dùng chung. Nếu lỗi quá domain-specific, vẫn thêm vào catalog với prefix rõ ràng.
 
-## 5. Database & Prisma
+## 6. Database & Prisma
 
 - Prisma schema phải thể hiện rõ quan hệ giữa tenant, branch, table, menu, order, order item.
 - Dùng transaction cho các flow ghi nhiều bảng, đặc biệt là tạo order.
+- Service là nơi mở transaction bằng `prisma.$transaction`. Repository chỉ nhận `DbClient`.
+- Raw SQL chỉ nằm trong repository, ưu tiên `$queryRaw`/`$executeRaw` dạng template, tránh `$queryRawUnsafe`.
+- Mọi repository query dữ liệu nghiệp vụ phải nhận hoặc dùng `tenantId` từ service context.
 - Monetary value cần dùng kiểu dữ liệu an toàn, không dùng float cho tiền nếu có lựa chọn tốt hơn.
 - Migration phải nhỏ, có tên rõ, và đi cùng cập nhật plan nếu thay đổi scope.
 
-## 6. Realtime
+## 7. Realtime
 
 - Socket.IO room phải có scope theo tenant/branch/table.
 - Event realtime không được leak dữ liệu tenant khác.
 - Event name cần thống nhất và được ghi lại trong plan/module docs.
 
-## 7. Frontend
+## 8. Frontend
 
 - Frontend admin là giao diện vận hành chính cho chủ/quản lý/nhân viên nhà hàng.
 - Frontend customer QR là giao diện mobile-first cho khách đặt món tại bàn.
@@ -75,18 +96,21 @@ File này là bộ rule chung cho project. Mỗi lần bắt đầu một prompt
 - UI customer cần nhanh, dễ đọc trên điện thoại, thao tác đặt món ít bước.
 - Mọi màn hình chính phải có loading, error, empty state.
 - API client phải typed, không dùng `any`.
+- Frontend API client unwrap `{ data }`; nếu cần pagination/meta thì tạo helper typed riêng thay vì đọc raw response tùy tiện.
+- Frontend xử lý lỗi dựa trên `error.code` trước, `message` chỉ dùng để hiển thị hoặc fallback.
 - State realtime cần được đồng bộ với Socket.IO event và fallback refresh khi cần.
 - Không hard-code tenant/branch/table trong UI ngoài dữ liệu seed/demo có ghi chú.
 
-## 8. Test & Quality
+## 9. Test & Quality
 
 - Mỗi module nghiệp vụ quan trọng cần có test cho service/use-case.
 - Order flow là luồng lõi, cần test kỹ transaction, total calculation, và tenant filtering.
 - Frontend cần test hoặc smoke check cho các flow chính: admin login, quản lý menu, tạo order QR, cập nhật order realtime.
 - Trước khi hoàn thành một task code, chạy test/lint/typecheck phù hợp nếu project đã có script.
+- Với API feature, tối thiểu smoke test success path, validation error, auth/tenant error nếu liên quan.
 - Nếu không chạy được test, phải ghi rõ lý do trong phản hồi.
 
-## 9. Cách Làm Việc Với Plan
+## 10. Cách Làm Việc Với Plan
 
 - Plan nằm trong `docs/plan/`.
 - Trước khi làm một chức năng, đọc `docs/plan/00_implementation_sequence.md` và file step cụ thể trong `docs/plan/steps/`.

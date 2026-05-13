@@ -1,6 +1,6 @@
 import type { AdminRole } from "@prisma/client";
 import { AppError } from "../shared/errors/app-error.js";
-import { ErrorCode } from "../shared/errors/error-codes.js";
+import { ErrorCode } from "../shared/errors/error-catalog.js";
 import { safeHandler } from "../shared/http/async-handler.js";
 import { verifyAdminToken } from "../shared/security/jwt.js";
 

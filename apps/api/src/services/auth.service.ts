@@ -1,7 +1,7 @@
 import type { AdminRole } from "@prisma/client";
 import { findAdminByEmail, findAdminByIdAndTenant } from "../repositories/auth.repository.js";
 import { AppError } from "../shared/errors/app-error.js";
-import { ErrorCode } from "../shared/errors/error-codes.js";
+import { ErrorCode } from "../shared/errors/error-catalog.js";
 import { prisma } from "../shared/prisma/client.js";
 import { createAdminToken } from "../shared/security/jwt.js";
 import { verifyPassword } from "../shared/security/password.js";

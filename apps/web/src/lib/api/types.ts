@@ -8,6 +8,7 @@ export type ApiErrorBody = {
 
 export type ApiSuccessBody<TData> = {
   data: TData;
+  meta?: unknown;
 };
 
 export type HealthResponse = {

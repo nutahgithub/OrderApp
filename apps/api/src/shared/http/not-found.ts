@@ -1,6 +1,6 @@
 import type { RequestHandler } from "express";
 import { AppError } from "../errors/app-error.js";
-import { ErrorCode } from "../errors/error-codes.js";
+import { ErrorCode } from "../errors/error-catalog.js";
 
 export const notFoundHandler: RequestHandler = (request, _response, next) => {
   next(

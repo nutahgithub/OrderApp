@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { AppError } from "../shared/errors/app-error.js";
-import { ErrorCode } from "../shared/errors/error-codes.js";
+import { ErrorCode } from "../shared/errors/error-catalog.js";
 import { ok } from "../shared/http/api-response.js";
 import { parseBody } from "../shared/http/validation.js";
 import { loginSchema } from "../schemas/auth.schema.js";
