@@ -3,6 +3,7 @@ export type Locale = "en";
 export const defaultLocale: Locale = "en";
 
 export const MessageKey = {
+  AuthSessionExpired: "auth.sessionExpired",
   AuthLoginFailedTitle: "auth.login.failed.title",
   AuthInvalidCredentials: "auth.invalidCredentials",
   RequestFailed: "common.requestFailed",
@@ -15,6 +16,7 @@ export type MessageKey = (typeof MessageKey)[keyof typeof MessageKey];
 type MessageDictionary = Record<MessageKey, string>;
 
 const en: MessageDictionary = {
+  [MessageKey.AuthSessionExpired]: "Your session has expired. Please sign in again.",
   [MessageKey.AuthLoginFailedTitle]: "Login failed",
   [MessageKey.AuthInvalidCredentials]: "Email or password is incorrect. Please check and try again.",
   [MessageKey.RequestFailed]: "The request could not be completed. Please try again.",

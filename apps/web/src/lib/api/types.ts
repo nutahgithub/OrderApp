@@ -43,3 +43,23 @@ export type LoginResponse = {
 export type CurrentAdminResponse = {
   admin: AdminProfile;
 };
+
+export type Branch = {
+  id: string;
+  tenantId: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BranchFormRequest = {
+  name: string;
+};
+
+export type ListBranchesResponse = {
+  branches: Branch[];
+};
+
+export type BranchResponse = {
+  branch: Branch;
+};

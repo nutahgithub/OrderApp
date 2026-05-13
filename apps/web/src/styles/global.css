@@ -137,6 +137,18 @@ input {
   font-size: 16px;
 }
 
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.section-header h2 {
+  margin: 0;
+}
+
 .state-message {
   display: grid;
   gap: 4px;
@@ -217,6 +229,65 @@ input {
   background: #e5f2ed;
 }
 
+.button--ghost {
+  color: #1f3f3b;
+  background: #eef2ee;
+}
+
+.button--inline {
+  min-height: 36px;
+  margin-top: 0;
+}
+
+.branch-form-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.branch-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.branch-form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.branch-list {
+  display: grid;
+  gap: 10px;
+}
+
+.branch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid #e3e7e0;
+  border-radius: 8px;
+  background: #fbfcfa;
+}
+
+.branch-row div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.branch-row strong,
+.branch-row span {
+  overflow-wrap: anywhere;
+}
+
+.branch-row span {
+  color: #68736f;
+  font-size: 13px;
+}
+
 .customer-shell {
   min-height: 100vh;
   padding: 18px;
@@ -279,5 +350,22 @@ input {
 
   .dashboard-grid {
     grid-template-columns: 1fr;
+  }
+
+  .branch-form,
+  .branch-row {
+    grid-template-columns: 1fr;
+  }
+
+  .branch-form {
+    align-items: stretch;
+  }
+
+  .branch-row {
+    display: grid;
+  }
+
+  .branch-form-actions {
+    justify-content: flex-start;
   }
 }

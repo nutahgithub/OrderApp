@@ -1,5 +1,6 @@
 export const ErrorCode = {
   AdminNotFound: "ADMIN_NOT_FOUND",
+  BranchNotFound: "BRANCH_NOT_FOUND",
   InternalError: "INTERNAL_ERROR",
   InvalidCredentials: "INVALID_CREDENTIALS",
   InvalidToken: "INVALID_TOKEN",
@@ -22,6 +23,11 @@ export const errorCatalog = {
   [ErrorCode.AdminNotFound]: {
     code: ErrorCode.AdminNotFound,
     message: "Admin not found",
+    statusCode: 404
+  },
+  [ErrorCode.BranchNotFound]: {
+    code: ErrorCode.BranchNotFound,
+    message: "Branch not found",
     statusCode: 404
   },
   [ErrorCode.InternalError]: {
@@ -69,4 +75,3 @@ export const errorCatalog = {
 export const getErrorDefinition = (code: ErrorCode): ErrorDefinition => {
   return errorCatalog[code];
 };
-

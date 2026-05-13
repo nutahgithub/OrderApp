@@ -1,8 +1,11 @@
 import type {
   ApiErrorBody,
   ApiSuccessBody,
+  BranchFormRequest,
+  BranchResponse,
   CurrentAdminResponse,
   HealthResponse,
+  ListBranchesResponse,
   LoginRequest,
   LoginResponse
 } from "./types";
@@ -61,5 +64,27 @@ export const apiClient = {
       headers: {
         Authorization: `Bearer ${token}`
       }
+    }),
+  listBranches: (token: string) =>
+    request<ListBranchesResponse>("/admin/branches", {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+  createBranch: (token: string, body: BranchFormRequest) =>
+    request<BranchResponse>("/admin/branches", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(body)
+    }),
+  updateBranch: (token: string, branchId: string, body: BranchFormRequest) =>
+    request<BranchResponse>(`/admin/branches/${branchId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(body)
     })
 };

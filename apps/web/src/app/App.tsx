@@ -3,6 +3,7 @@ import { AdminLayout } from "../components/layout/AdminLayout";
 import { CustomerLayout } from "../components/layout/CustomerLayout";
 import { AuthProvider } from "../features/auth/AuthContext";
 import { ProtectedRoute } from "../features/auth/ProtectedRoute";
+import { AdminBranchesPage } from "../pages/admin/AdminBranchesPage";
 import { AdminDashboardPage } from "../pages/admin/AdminDashboardPage";
 import { AdminLoginPage } from "../pages/admin/AdminLoginPage";
 import { CustomerQrEntryPage } from "../pages/customer/CustomerQrEntryPage";
@@ -18,6 +19,7 @@ export const App = () => {
           <Route element={<ProtectedRoute />}>
             <Route element={<AdminLayout />}>
               <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+              <Route path="/admin/branches" element={<AdminBranchesPage />} />
             </Route>
           </Route>
           <Route element={<CustomerLayout />}>

@@ -1,0 +1,56 @@
+import type { Branch } from "@prisma/client";
+import {
+  createBranch,
+  listBranchesByTenant,
+  updateBranchByTenant
+} from "../repositories/branch.repository.js";
+import { AppError } from "../shared/errors/app-error.js";
+import { ErrorCode } from "../shared/errors/error-catalog.js";
+import { prisma } from "../shared/prisma/client.js";
+import type { BranchDto, CreateBranchInput, UpdateBranchInput } from "../types/branch.types.js";
+
+const toBranchDto = (branch: Branch): BranchDto => {
+  return {
+    id: branch.id,
+    tenantId: branch.tenantId,
+    name: branch.name,
+    createdAt: branch.createdAt.toISOString(),
+    updatedAt: branch.updatedAt.toISOString()
+  };
+};
+
+export const listBranches = async (tenantId: string): Promise<BranchDto[]> => {
+  const branches = await listBranchesByTenant(prisma, tenantId);
+
+  return branches.map(toBranchDto);
+};
+
+export const createTenantBranch = async (
+  tenantId: string,
+  input: CreateBranchInput
+): Promise<BranchDto> => {
+  const branch = await createBranch(prisma, {
+    tenantId,
+    name: input.name.trim()
+  });
+
+  return toBranchDto(branch);
+};
+
+export const updateTenantBranch = async (
+  tenantId: string,
+  branchId: string,
+  input: UpdateBranchInput
+): Promise<BranchDto> => {
+  const branch = await updateBranchByTenant(prisma, {
+    branchId,
+    tenantId,
+    name: input.name.trim()
+  });
+
+  if (!branch) {
+    throw new AppError(ErrorCode.BranchNotFound);
+  }
+
+  return toBranchDto(branch);
+};
