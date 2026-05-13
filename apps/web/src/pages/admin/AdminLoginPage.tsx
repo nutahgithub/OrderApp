@@ -5,6 +5,8 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { StateMessage } from "../../components/ui/StateMessage";
 import { useAuth } from "../../features/auth/AuthContext";
+import { getUserErrorMessage } from "../../lib/i18n/error-messages";
+import { MessageKey, t } from "../../lib/i18n/messages";
 
 export const AdminLoginPage = () => {
   const { isAuthenticated, login } = useAuth();
@@ -35,8 +37,7 @@ export const AdminLoginPage = () => {
       });
       navigate(from, { replace: true });
     } catch (loginError: unknown) {
-      const message = loginError instanceof Error ? loginError.message : "Unable to login";
-      setError(message);
+      setError(getUserErrorMessage(loginError));
     } finally {
       setIsSubmitting(false);
     }
@@ -66,7 +67,7 @@ export const AdminLoginPage = () => {
             onChange={(event) => setPassword(event.target.value)}
             required
           />
-          {error ? <StateMessage title="Login failed" description={error} tone="error" /> : null}
+          {error ? <StateMessage title={t(MessageKey.AuthLoginFailedTitle)} description={error} tone="error" /> : null}
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Signing in..." : "Continue"}
           </Button>

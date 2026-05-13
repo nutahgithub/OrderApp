@@ -98,6 +98,9 @@ File này là bộ rule chung cho project. Mỗi lần bắt đầu một prompt
 - API client phải typed, không dùng `any`.
 - Frontend API client unwrap `{ data }`; nếu cần pagination/meta thì tạo helper typed riêng thay vì đọc raw response tùy tiện.
 - Frontend xử lý lỗi dựa trên `error.code` trước, `message` chỉ dùng để hiển thị hoặc fallback.
+- Frontend message hiển thị cho user phải được tập trung trong `lib/i18n/messages.ts`.
+- Frontend error mapping từ API `error.code` sang user message phải ưu tiên dùng mapper chung trong `lib/i18n/error-messages.ts`. Chỉ tạo mapper riêng cho feature khi lỗi đó cần wording theo ngữ cảnh đặc biệt.
+- Khi cần đa ngôn ngữ, thêm locale dictionary mới và giữ nguyên `MessageKey`.
 - State realtime cần được đồng bộ với Socket.IO event và fallback refresh khi cần.
 - Không hard-code tenant/branch/table trong UI ngoài dữ liệu seed/demo có ghi chú.
 
