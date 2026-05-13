@@ -9,15 +9,15 @@ Khởi tạo nền tảng project để các module sau có thể phát triển 
 - Tạo project Node.js với TypeScript.
 - Chọn framework API: Express hoặc Fastify.
 - Cấu hình lint, format, typecheck.
-- Tạo cấu trúc modular monolith:
-  - `src/modules/auth`
-  - `src/modules/tenant`
-  - `src/modules/branch`
-  - `src/modules/table`
-  - `src/modules/menu`
-  - `src/modules/order`
-  - `src/modules/payment`
-  - `src/modules/report`
+- Tạo cấu trúc API layer-first:
+  - `src/routes`
+  - `src/controllers`
+  - `src/services`
+  - `src/repositories`
+  - `src/schemas`
+  - `src/middlewares`
+  - `src/types`
+  - `src/shared`
   - `src/shared`
 - Tạo health check endpoint.
 - Tạo global error handler.

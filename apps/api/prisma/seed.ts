@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import "../src/config/env.js";
+import { hashPassword } from "../src/shared/security/password.js";
 
 const prisma = new PrismaClient();
 
@@ -52,6 +53,27 @@ const main = async () => {
       name: "House Coffee",
       price: "45000",
       isActive: true
+    }
+  });
+
+  await prisma.adminUser.upsert({
+    where: {
+      tenantId_email: {
+        tenantId: tenant.id,
+        email: "admin@example.com"
+      }
+    },
+    create: {
+      tenantId: tenant.id,
+      email: "admin@example.com",
+      name: "Demo Admin",
+      passwordHash: hashPassword("admin123456"),
+      role: "OWNER"
+    },
+    update: {
+      name: "Demo Admin",
+      passwordHash: hashPassword("admin123456"),
+      role: "OWNER"
     }
   });
 };

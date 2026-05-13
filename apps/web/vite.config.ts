@@ -8,8 +8,13 @@ const appRoot = path.dirname(currentFile);
 const projectRoot = path.resolve(appRoot, "../..");
 
 export default defineConfig({
+  root: appRoot,
   envDir: projectRoot,
   plugins: [react()],
+  build: {
+    outDir: "dist",
+    emptyOutDir: true
+  },
   server: {
     port: 5173
   }

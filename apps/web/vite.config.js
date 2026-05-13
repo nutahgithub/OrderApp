@@ -6,8 +6,13 @@ var currentFile = fileURLToPath(import.meta.url);
 var appRoot = path.dirname(currentFile);
 var projectRoot = path.resolve(appRoot, "../..");
 export default defineConfig({
+    root: appRoot,
     envDir: projectRoot,
     plugins: [react()],
+    build: {
+        outDir: "dist",
+        emptyOutDir: true
+    },
     server: {
         port: 5173
     }

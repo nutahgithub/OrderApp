@@ -1,4 +1,11 @@
-import type { ApiErrorBody, HealthResponse } from "./types";
+import type {
+  ApiErrorBody,
+  ApiSuccessBody,
+  CurrentAdminResponse,
+  HealthResponse,
+  LoginRequest,
+  LoginResponse
+} from "./types";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 
@@ -37,10 +44,22 @@ const request = async <TResponse>(path: string, init?: RequestInit): Promise<TRe
     throw await parseApiError(response);
   }
 
-  return (await response.json()) as TResponse;
+  const body = (await response.json()) as ApiSuccessBody<TResponse>;
+
+  return body.data;
 };
 
 export const apiClient = {
-  health: () => request<HealthResponse>("/health")
+  health: () => request<HealthResponse>("/health"),
+  loginAdmin: (body: LoginRequest) =>
+    request<LoginResponse>("/admin/auth/login", {
+      method: "POST",
+      body: JSON.stringify(body)
+    }),
+  getCurrentAdmin: (token: string) =>
+    request<CurrentAdminResponse>("/admin/auth/me", {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
 };
-

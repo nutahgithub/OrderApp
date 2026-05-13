@@ -15,7 +15,7 @@ File này là bộ rule chung cho project. Mỗi lần bắt đầu một prompt
 - Không dùng `any` trong TypeScript, trừ khi có lý do rất rõ và phải ghi chú.
 - Không đặt business logic trong controller/route handler.
 - Mọi logic nghiệp vụ phải nằm trong service/use-case/domain layer phù hợp.
-- Code cần dễ test, dễ đọc, chia module rõ ràng.
+- Code cần dễ test, dễ đọc, chia theo tầng rõ ràng.
 
 ## 2. Multi-Tenant
 
@@ -25,19 +25,34 @@ File này là bộ rule chung cho project. Mỗi lần bắt đầu một prompt
 - Không được lấy dữ liệu cross-tenant nếu không có use case hệ thống rõ ràng.
 - `tenant_id` phải được truyền qua request context hoặc auth context, không hard-code.
 
-## 3. Module Boundary
+## 3. API Source Structure
 
-- Các module chính: `auth`, `tenant`, `branch`, `table`, `menu`, `order`, `payment`, `report`.
-- Module chỉ expose API/service cần thiết cho module khác.
-- Không truy cập trực tiếp database model của module khác nếu đã có service/repository phù hợp.
-- Tránh tạo dependency vòng giữa các module.
+- API dùng cấu trúc layer-first để dễ đọc và maintain:
+  - `routes`: khai báo URL, middleware, controller handler.
+  - `controllers`: nhận request, validate input, gọi service, trả response.
+  - `services`: business logic/use-case.
+  - `repositories`: Prisma query và data access.
+  - `schemas`: Zod validation schema.
+  - `middlewares`: Express middleware dùng lại.
+  - `types`: type dùng chung trong API.
+  - `shared`: code hạ tầng dùng chung như errors, response, prisma, logger, security.
+- Không đặt source mới trong `src/modules/*` trừ khi có quyết định đổi kiến trúc.
+- Controller không query Prisma trực tiếp.
+- Service không tự parse request/response.
+- Repository không chứa business rule.
+- Transaction boundary nằm ở service layer. Repository phải nhận `DbClient` từ service để service có thể truyền `prisma` hoặc transaction client `tx`.
+- Repository không import Prisma singleton trực tiếp, trừ khi có lý do đặc biệt được ghi chú.
+- Code dùng chung như JWT/password/hash/response/error đặt trong `shared`, không đặt trong một chức năng riêng.
 
 ## 4. API & Controller
 
 - Controller chỉ nhận request, validate input, gọi service/use-case, trả response.
+- Controller không viết `try/catch` lặp lại. Route async phải dùng handler chung như `asyncHandler(...)`, middleware sync có thể dùng `safeHandler(...)`.
 - Validate input bằng schema rõ ràng.
+- Controller phải dùng helper validation chung như `parseBody(request, schema)` thay vì gọi schema parse rải rác theo kiểu tự phát.
 - Response format cần thống nhất trong toàn project.
 - Error handling cần thống nhất, không throw string/raw error ra client.
+- Mỗi lỗi phải có một `ErrorCode` và message/status trong error catalog tập trung. Khi thêm lỗi mới, thêm vào catalog trước rồi mới sử dụng trong service/middleware/controller.
 
 ## 5. Database & Prisma
 
