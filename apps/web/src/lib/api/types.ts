@@ -63,3 +63,53 @@ export type ListBranchesResponse = {
 export type BranchResponse = {
   branch: Branch;
 };
+
+export type TableStatus = "AVAILABLE" | "OCCUPIED" | "DISABLED";
+
+export type RestaurantTable = {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  name: string;
+  status: TableStatus;
+  qrUrl: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TableFormRequest = {
+  branchId?: string;
+  name: string;
+  status: TableStatus;
+};
+
+export type CreateTableRequest = {
+  branchId: string;
+  name: string;
+  status?: TableStatus;
+};
+
+export type ListTablesResponse = {
+  tables: RestaurantTable[];
+};
+
+export type TableResponse = {
+  table: RestaurantTable;
+};
+
+export type QrEntry = {
+  tenantId: string;
+  branch: {
+    id: string;
+    name: string;
+  };
+  table: {
+    id: string;
+    name: string;
+    status: TableStatus;
+  };
+};
+
+export type QrEntryResponse = {
+  qrEntry: QrEntry;
+};

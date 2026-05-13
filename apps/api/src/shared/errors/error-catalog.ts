@@ -7,6 +7,7 @@ export const ErrorCode = {
   MissingAuthContext: "MISSING_AUTH_CONTEXT",
   MissingToken: "MISSING_TOKEN",
   RouteNotFound: "ROUTE_NOT_FOUND",
+  TableNotFound: "TABLE_NOT_FOUND",
   TokenExpired: "TOKEN_EXPIRED",
   ValidationError: "VALIDATION_ERROR"
 } as const;
@@ -58,6 +59,11 @@ export const errorCatalog = {
   [ErrorCode.RouteNotFound]: {
     code: ErrorCode.RouteNotFound,
     message: "Route not found",
+    statusCode: 404
+  },
+  [ErrorCode.TableNotFound]: {
+    code: ErrorCode.TableNotFound,
+    message: "Table not found",
     statusCode: 404
   },
   [ErrorCode.TokenExpired]: {

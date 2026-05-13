@@ -2,6 +2,7 @@ import type { AdminRole } from "@prisma/client";
 import { findAdminByEmail, findAdminByIdAndTenant } from "../repositories/auth.repository.js";
 import { AppError } from "../shared/errors/app-error.js";
 import { ErrorCode } from "../shared/errors/error-catalog.js";
+import { hashForLog, logger } from "../shared/logger/logger.js";
 import { prisma } from "../shared/prisma/client.js";
 import { createAdminToken } from "../shared/security/jwt.js";
 import { verifyPassword } from "../shared/security/password.js";
@@ -33,12 +34,22 @@ export const loginAdmin = async (input: LoginInput): Promise<LoginResult> => {
   const admin = await findAdminByEmail(prisma, normalizedEmail);
 
   if (!admin || !verifyPassword(input.password, admin.passwordHash)) {
+    logger.warn("admin_login_failed", {
+      emailHash: hashForLog(normalizedEmail)
+    });
+
     throw new AppError(ErrorCode.InvalidCredentials);
   }
 
   const profile = toAdminProfile(admin);
   const token = createAdminToken({
     sub: admin.id,
+    tenantId: admin.tenantId,
+    role: admin.role
+  });
+
+  logger.info("admin_login_succeeded", {
+    adminId: admin.id,
     tenantId: admin.tenantId,
     role: admin.role
   });

@@ -6,6 +6,7 @@ import { ProtectedRoute } from "../features/auth/ProtectedRoute";
 import { AdminBranchesPage } from "../pages/admin/AdminBranchesPage";
 import { AdminDashboardPage } from "../pages/admin/AdminDashboardPage";
 import { AdminLoginPage } from "../pages/admin/AdminLoginPage";
+import { AdminTablesPage } from "../pages/admin/AdminTablesPage";
 import { CustomerQrEntryPage } from "../pages/customer/CustomerQrEntryPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 
@@ -20,6 +21,7 @@ export const App = () => {
             <Route element={<AdminLayout />}>
               <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
               <Route path="/admin/branches" element={<AdminBranchesPage />} />
+              <Route path="/admin/tables" element={<AdminTablesPage />} />
             </Route>
           </Route>
           <Route element={<CustomerLayout />}>

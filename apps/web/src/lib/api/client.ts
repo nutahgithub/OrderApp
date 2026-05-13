@@ -4,10 +4,15 @@ import type {
   BranchFormRequest,
   BranchResponse,
   CurrentAdminResponse,
+  CreateTableRequest,
   HealthResponse,
   ListBranchesResponse,
+  ListTablesResponse,
   LoginRequest,
-  LoginResponse
+  LoginResponse,
+  QrEntryResponse,
+  TableFormRequest,
+  TableResponse
 } from "./types";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
@@ -86,5 +91,34 @@ export const apiClient = {
         Authorization: `Bearer ${token}`
       },
       body: JSON.stringify(body)
-    })
+    }),
+  listTables: (token: string, branchId: string) =>
+    request<ListTablesResponse>(`/admin/tables?branchId=${encodeURIComponent(branchId)}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+  createTable: (token: string, body: CreateTableRequest) =>
+    request<TableResponse>("/admin/tables", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(body)
+    }),
+  updateTable: (token: string, tableId: string, body: TableFormRequest) =>
+    request<TableResponse>(`/admin/tables/${tableId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        name: body.name,
+        status: body.status
+      })
+    }),
+  getQrEntry: (tenantId: string, branchId: string, tableId: string) =>
+    request<QrEntryResponse>(
+      `/qr/${encodeURIComponent(tenantId)}/${encodeURIComponent(branchId)}/${encodeURIComponent(tableId)}`
+    )
 };

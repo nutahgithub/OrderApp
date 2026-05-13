@@ -40,6 +40,7 @@ const envSchema = z.object({
   SHADOW_DATABASE_URL: z.string().min(1, "SHADOW_DATABASE_URL is required"),
   REDIS_URL: z.string().min(1, "REDIS_URL is required"),
   JWT_SECRET: z.string().min(12, "JWT_SECRET must be at least 12 characters"),
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   WEB_APP_URL: z.string().url().default("http://localhost:5173")
 });
 

@@ -6,6 +6,7 @@ import {
 } from "../repositories/branch.repository.js";
 import { AppError } from "../shared/errors/app-error.js";
 import { ErrorCode } from "../shared/errors/error-catalog.js";
+import { logger } from "../shared/logger/logger.js";
 import { prisma } from "../shared/prisma/client.js";
 import type { BranchDto, CreateBranchInput, UpdateBranchInput } from "../types/branch.types.js";
 
@@ -34,6 +35,11 @@ export const createTenantBranch = async (
     name: input.name.trim()
   });
 
+  logger.info("branch_created", {
+    tenantId,
+    branchId: branch.id
+  });
+
   return toBranchDto(branch);
 };
 
@@ -51,6 +57,11 @@ export const updateTenantBranch = async (
   if (!branch) {
     throw new AppError(ErrorCode.BranchNotFound);
   }
+
+  logger.info("branch_updated", {
+    tenantId,
+    branchId: branch.id
+  });
 
   return toBranchDto(branch);
 };

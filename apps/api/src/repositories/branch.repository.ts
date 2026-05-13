@@ -12,6 +12,21 @@ export const listBranchesByTenant = async (db: DbClient, tenantId: string): Prom
   });
 };
 
+export const findBranchByTenant = async (
+  db: DbClient,
+  input: {
+    branchId: string;
+    tenantId: string;
+  }
+): Promise<Branch | null> => {
+  return db.branch.findFirst({
+    where: {
+      id: input.branchId,
+      tenantId: input.tenantId
+    }
+  });
+};
+
 export const createBranch = async (
   db: DbClient,
   input: {

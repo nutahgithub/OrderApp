@@ -5,7 +5,7 @@ import { env } from "./config/env.js";
 import { registerRoutes } from "./routes/index.js";
 import { errorHandler } from "./shared/http/error-handler.js";
 import { notFoundHandler } from "./shared/http/not-found.js";
-import { requestLogger } from "./shared/logger/request-logger.js";
+import { requestContext, requestLogger } from "./shared/logger/request-logger.js";
 
 export const createApp = () => {
   const app = express();
@@ -17,6 +17,7 @@ export const createApp = () => {
       credentials: true
     })
   );
+  app.use(requestContext);
   app.use(express.json());
   app.use(requestLogger);
 
