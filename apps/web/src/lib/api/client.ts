@@ -5,6 +5,7 @@ import type {
   BranchResponse,
   CurrentAdminResponse,
   CreateMenuRequest,
+  CreateQrOrderRequest,
   CreateTableRequest,
   HealthResponse,
   ListBranchesResponse,
@@ -193,5 +194,14 @@ export const apiClient = {
   listPublicMenus: (tenantId: string, branchId: string, tableId: string) =>
     request<ListMenusResponse>(
       `/qr/${encodeURIComponent(tenantId)}/${encodeURIComponent(branchId)}/${encodeURIComponent(tableId)}/menu`
+    ),
+  createQrOrder: (tenantId: string, branchId: string, tableId: string, body: CreateQrOrderRequest) =>
+    request<OrderResponse>(`/qr/${encodeURIComponent(tenantId)}/${encodeURIComponent(branchId)}/${encodeURIComponent(tableId)}/orders`, {
+      method: "POST",
+      body: JSON.stringify(body)
+    }),
+  getQrOrder: (tenantId: string, branchId: string, tableId: string, orderId: string) =>
+    request<OrderResponse>(
+      `/qr/${encodeURIComponent(tenantId)}/${encodeURIComponent(branchId)}/${encodeURIComponent(tableId)}/orders/${encodeURIComponent(orderId)}`
     )
 };

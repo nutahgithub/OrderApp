@@ -7,6 +7,7 @@ import type { Branch, Order, OrderDetail, OrderStatus, UpdateOrderStatusRequest 
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
+import { createRealtimeSocket, RealtimeEvent } from "../../lib/realtime/socket";
 
 type BranchesState =
   | { status: "loading" }
@@ -24,6 +25,8 @@ type OrderDetailState =
   | { status: "loading" }
   | { status: "success"; order: OrderDetail }
   | { status: "error"; message: string };
+
+type RealtimeState = "idle" | "connecting" | "connected" | "fallback";
 
 const allStatusOptions: Array<OrderStatus | "ALL"> = [
   "ALL",
@@ -56,6 +59,7 @@ export const AdminOrdersPage = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<UpdateOrderStatusRequest["status"] | null>(null);
+  const [realtimeState, setRealtimeState] = useState<RealtimeState>("idle");
 
   const branches = branchesState.status === "success" ? branchesState.branches : [];
   const orders = ordersState.status === "success" ? ordersState.orders : [];
@@ -86,6 +90,43 @@ export const AdminOrdersPage = () => {
 
     return labelByStatus[status];
   };
+
+  const shouldShowOrder = useCallback(
+    (order: Order): boolean => {
+      return order.branchId === selectedBranchId && (selectedStatus === "ALL" || order.status === selectedStatus);
+    },
+    [selectedBranchId, selectedStatus]
+  );
+
+  const upsertOrder = useCallback((order: Order) => {
+    setOrdersState((currentState) => {
+      if (currentState.status !== "success") {
+        return currentState;
+      }
+
+      const withoutCurrent = currentState.orders.filter((currentOrder) => currentOrder.id !== order.id);
+
+      return {
+        status: "success",
+        orders: [order, ...withoutCurrent].sort(
+          (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+        )
+      };
+    });
+  }, []);
+
+  const removeOrder = useCallback((orderId: string) => {
+    setOrdersState((currentState) => {
+      if (currentState.status !== "success") {
+        return currentState;
+      }
+
+      return {
+        status: "success",
+        orders: currentState.orders.filter((order) => order.id !== orderId)
+      };
+    });
+  }, []);
 
   const loadBranches = useCallback(async () => {
     if (!token) {
@@ -176,6 +217,70 @@ export const AdminOrdersPage = () => {
     void loadOrderDetail(selectedOrderId);
   }, [loadOrderDetail, selectedOrderId]);
 
+  useEffect(() => {
+    if (!token || !selectedBranchId) {
+      setRealtimeState("idle");
+      return;
+    }
+
+    const socket = createRealtimeSocket(token);
+    let fallbackTimer = window.setTimeout(() => {
+      setRealtimeState("fallback");
+    }, 5000);
+
+    setRealtimeState("connecting");
+
+    socket.on("connect", () => {
+      window.clearTimeout(fallbackTimer);
+      setRealtimeState("connected");
+      socket.emit(RealtimeEvent.AdminJoinBranch, { branchId: selectedBranchId });
+      void loadOrders(selectedBranchId, selectedStatus);
+    });
+
+    socket.on("connect_error", () => {
+      window.clearTimeout(fallbackTimer);
+      setRealtimeState("fallback");
+    });
+
+    socket.on("disconnect", () => {
+      fallbackTimer = window.setTimeout(() => {
+        setRealtimeState("fallback");
+      }, 5000);
+    });
+
+    socket.on(RealtimeEvent.OrderCreated, (payload) => {
+      if (!shouldShowOrder(payload.order)) {
+        return;
+      }
+
+      upsertOrder(payload.order);
+      setSelectedOrderId((currentOrderId) => currentOrderId || payload.order.id);
+    });
+
+    socket.on(RealtimeEvent.OrderStatusUpdated, (payload) => {
+      if (shouldShowOrder(payload.order)) {
+        upsertOrder(payload.order);
+      } else {
+        removeOrder(payload.order.id);
+      }
+
+      setOrderDetailState((currentState) => {
+        if (currentState.status === "success" && currentState.order.id === payload.order.id) {
+          return { status: "success", order: payload.order };
+        }
+
+        return currentState;
+      });
+    });
+
+    socket.connect();
+
+    return () => {
+      window.clearTimeout(fallbackTimer);
+      socket.disconnect();
+    };
+  }, [loadOrders, removeOrder, selectedBranchId, selectedStatus, shouldShowOrder, token, upsertOrder]);
+
   const handleStatusUpdate = async (status: UpdateOrderStatusRequest["status"]) => {
     if (!token || !selectedOrderId) {
       logout();
@@ -255,6 +360,11 @@ export const AdminOrdersPage = () => {
         >
           {t(MessageKey.Refresh)}
         </Button>
+        <span className={`connection-pill connection-pill--${realtimeState}`}>
+          {realtimeState === "connected" ? t(MessageKey.RealtimeConnected) : null}
+          {realtimeState === "connecting" ? t(MessageKey.RealtimeConnecting) : null}
+          {realtimeState === "fallback" ? t(MessageKey.RealtimeFallback) : null}
+        </span>
       </section>
 
       {branchesState.status === "loading" ? <StateMessage title={t(MessageKey.OrdersLoadingBranches)} /> : null}

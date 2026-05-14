@@ -1,9 +1,22 @@
 import type { Request, Response } from "express";
-import { listOrdersQuerySchema, orderParamsSchema, updateOrderStatusSchema } from "../schemas/order.schema.js";
-import { getTenantOrderDetail, listTenantOrders, updateTenantOrderStatus } from "../services/order.service.js";
+import {
+  createQrOrderSchema,
+  listOrdersQuerySchema,
+  orderParamsSchema,
+  qrOrderDetailParamsSchema,
+  qrOrderParamsSchema,
+  updateOrderStatusSchema
+} from "../schemas/order.schema.js";
+import {
+  createQrOrder,
+  getQrOrderDetail,
+  getTenantOrderDetail,
+  listTenantOrders,
+  updateTenantOrderStatus
+} from "../services/order.service.js";
 import { AppError } from "../shared/errors/app-error.js";
 import { ErrorCode } from "../shared/errors/error-catalog.js";
-import { ok } from "../shared/http/api-response.js";
+import { created, ok } from "../shared/http/api-response.js";
 import { parseBody, parseParams, parseQuery } from "../shared/http/validation.js";
 
 const getTenantId = (request: Request): string => {
@@ -36,6 +49,25 @@ export const updateOrderStatusController = async (request: Request, response: Re
   const params = parseParams(request, orderParamsSchema);
   const input = parseBody(request, updateOrderStatusSchema);
   const order = await updateTenantOrderStatus(getTenantId(request), params.orderId, input);
+
+  ok(response, {
+    order
+  });
+};
+
+export const createQrOrderController = async (request: Request, response: Response) => {
+  const params = parseParams(request, qrOrderParamsSchema);
+  const input = parseBody(request, createQrOrderSchema);
+  const order = await createQrOrder(params.tenantId, params.branchId, params.tableId, input);
+
+  created(response, {
+    order
+  });
+};
+
+export const getQrOrderController = async (request: Request, response: Response) => {
+  const params = parseParams(request, qrOrderDetailParamsSchema);
+  const order = await getQrOrderDetail(params.tenantId, params.branchId, params.tableId, params.orderId);
 
   ok(response, {
     order

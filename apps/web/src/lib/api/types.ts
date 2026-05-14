@@ -131,6 +131,13 @@ export type UpdateOrderStatusRequest = {
   status: "CONFIRMED" | "PREPARING" | "READY" | "SERVED" | "CANCELLED";
 };
 
+export type CreateQrOrderRequest = {
+  items: Array<{
+    menuId: string;
+    quantity: number;
+  }>;
+};
+
 export type ListOrdersResponse = {
   orders: Order[];
 };

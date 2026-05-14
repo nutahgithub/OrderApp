@@ -339,7 +339,7 @@ a:focus-visible {
 
 .order-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 320px) minmax(0, 220px) auto;
+  grid-template-columns: minmax(0, 320px) minmax(0, 220px) auto auto;
   align-items: end;
   gap: 12px;
 }
@@ -611,6 +611,34 @@ a:focus-visible {
   background: #ffe0dc;
 }
 
+.connection-pill {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #4b5563;
+  background: #eef2f4;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.connection-pill:empty {
+  display: none;
+}
+
+.connection-pill--connected {
+  color: #1f3f3b;
+  background: #dff6e9;
+}
+
+.connection-pill--fallback {
+  color: #6c2a24;
+  background: #ffe0dc;
+}
+
 .branch-list {
   display: grid;
   gap: 10px;
@@ -748,6 +776,36 @@ a:focus-visible {
   color: #1f6f61;
 }
 
+.cart-stepper {
+  display: inline-grid;
+  grid-template-columns: 32px 32px 32px;
+  align-items: center;
+  justify-content: end;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.cart-stepper span {
+  color: #1f3f3b;
+  font-weight: 800;
+  text-align: center;
+}
+
+.button--icon {
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+}
+
+.customer-cart,
+.customer-tracking {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e7e4da;
+}
+
 @media (max-width: 780px) {
   .admin-shell {
     grid-template-columns: 1fr;
@@ -837,5 +895,10 @@ a:focus-visible {
 
   .customer-menu-row b {
     margin-left: 0;
+  }
+
+  .cart-stepper {
+    width: 100%;
+    justify-content: start;
   }
 }

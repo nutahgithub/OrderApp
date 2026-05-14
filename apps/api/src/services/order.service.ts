@@ -1,17 +1,28 @@
 import { Prisma } from "@prisma/client";
 import type { OrderItem } from "@prisma/client";
 import { findBranchByTenant } from "../repositories/branch.repository.js";
+import { listActiveMenusByTenantAndIds } from "../repositories/menu.repository.js";
 import {
+  createOrderWithItems,
   findOrderByTenant,
   listOrdersByTenantBranch,
   updateOrderStatusByTenant
 } from "../repositories/order.repository.js";
 import type { OrderRecord } from "../repositories/order.repository.js";
+import { findTableQrEntry } from "../repositories/table.repository.js";
 import { AppError } from "../shared/errors/app-error.js";
 import { ErrorCode } from "../shared/errors/error-catalog.js";
 import { logger } from "../shared/logger/logger.js";
 import { prisma } from "../shared/prisma/client.js";
-import type { ListOrdersInput, OrderDetailDto, OrderDto, OrderItemDto, UpdateOrderStatusInput } from "../types/order.types.js";
+import { emitOrderCreated, emitOrderStatusUpdated } from "../shared/realtime/socket.js";
+import type {
+  CreateQrOrderInput,
+  ListOrdersInput,
+  OrderDetailDto,
+  OrderDto,
+  OrderItemDto,
+  UpdateOrderStatusInput
+} from "../types/order.types.js";
 
 const toMoney = (value: Prisma.Decimal): string => {
   return value.toFixed(2);
@@ -92,6 +103,88 @@ export const getTenantOrderDetail = async (tenantId: string, orderId: string): P
   return toOrderDetailDto(order);
 };
 
+export const createQrOrder = async (
+  tenantId: string,
+  branchId: string,
+  tableId: string,
+  input: CreateQrOrderInput
+): Promise<OrderDetailDto> => {
+  const order = await prisma.$transaction(async (tx) => {
+    const table = await findTableQrEntry(tx, {
+      tenantId,
+      branchId,
+      tableId
+    });
+
+    if (!table || table.status === "DISABLED") {
+      throw new AppError(ErrorCode.TableNotFound);
+    }
+
+    const quantityByMenuId = input.items.reduce<Map<string, number>>((accumulator, item) => {
+      accumulator.set(item.menuId, (accumulator.get(item.menuId) ?? 0) + item.quantity);
+      return accumulator;
+    }, new Map<string, number>());
+    const menuIds = [...quantityByMenuId.keys()];
+    const menus = await listActiveMenusByTenantAndIds(tx, {
+      tenantId,
+      menuIds
+    });
+
+    if (menus.length !== menuIds.length) {
+      throw new AppError(ErrorCode.InvalidOrderCart);
+    }
+
+    const items = menus.map((menu) => ({
+      menuId: menu.id,
+      quantity: quantityByMenuId.get(menu.id) ?? 0,
+      unitPrice: menu.price
+    }));
+    const total = items.reduce((sum, item) => {
+      return sum.add(item.unitPrice.mul(new Prisma.Decimal(item.quantity)));
+    }, new Prisma.Decimal(0));
+
+    return createOrderWithItems(tx, {
+      tenantId,
+      branchId,
+      tableId,
+      total,
+      items
+    });
+  });
+
+  const dto = toOrderDetailDto(order);
+
+  logger.info("order_created", {
+    tenantId,
+    branchId,
+    tableId,
+    orderId: dto.id
+  });
+  emitOrderCreated({
+    order: toOrderDto(order)
+  });
+
+  return dto;
+};
+
+export const getQrOrderDetail = async (
+  tenantId: string,
+  branchId: string,
+  tableId: string,
+  orderId: string
+): Promise<OrderDetailDto> => {
+  const order = await findOrderByTenant(prisma, {
+    tenantId,
+    orderId
+  });
+
+  if (!order || order.branchId !== branchId || order.tableId !== tableId) {
+    throw new AppError(ErrorCode.OrderNotFound);
+  }
+
+  return toOrderDetailDto(order);
+};
+
 export const updateTenantOrderStatus = async (
   tenantId: string,
   orderId: string,
@@ -114,5 +207,11 @@ export const updateTenantOrderStatus = async (
     status: order.status
   });
 
-  return toOrderDetailDto(order);
+  const dto = toOrderDetailDto(order);
+
+  emitOrderStatusUpdated({
+    order: dto
+  });
+
+  return dto;
 };

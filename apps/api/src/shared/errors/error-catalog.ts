@@ -3,6 +3,7 @@ export const ErrorCode = {
   BranchNotFound: "BRANCH_NOT_FOUND",
   InternalError: "INTERNAL_ERROR",
   InvalidCredentials: "INVALID_CREDENTIALS",
+  InvalidOrderCart: "INVALID_ORDER_CART",
   InvalidUpload: "INVALID_UPLOAD",
   InvalidToken: "INVALID_TOKEN",
   MenuNotFound: "MENU_NOT_FOUND",
@@ -43,6 +44,11 @@ export const errorCatalog = {
     code: ErrorCode.InvalidCredentials,
     message: "Invalid email or password",
     statusCode: 401
+  },
+  [ErrorCode.InvalidOrderCart]: {
+    code: ErrorCode.InvalidOrderCart,
+    message: "Order cart contains unavailable items",
+    statusCode: 400
   },
   [ErrorCode.InvalidUpload]: {
     code: ErrorCode.InvalidUpload,

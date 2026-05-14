@@ -28,6 +28,13 @@ export type OrderDetailDto = OrderDto & {
   items: OrderItemDto[];
 };
 
+export type CreateQrOrderInput = {
+  items: Array<{
+    menuId: string;
+    quantity: number;
+  }>;
+};
+
 export type ListOrdersInput = {
   branchId: string;
   status?: OrderStatus;

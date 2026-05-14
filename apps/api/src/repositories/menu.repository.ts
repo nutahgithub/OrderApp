@@ -24,6 +24,24 @@ export const listActiveMenusByTenant = async (db: DbClient, tenantId: string): P
   });
 };
 
+export const listActiveMenusByTenantAndIds = async (
+  db: DbClient,
+  input: {
+    tenantId: string;
+    menuIds: string[];
+  }
+): Promise<Menu[]> => {
+  return db.menu.findMany({
+    where: {
+      tenantId: input.tenantId,
+      id: {
+        in: input.menuIds
+      },
+      isActive: true
+    }
+  });
+};
+
 export const createMenu = async (
   db: DbClient,
   input: {

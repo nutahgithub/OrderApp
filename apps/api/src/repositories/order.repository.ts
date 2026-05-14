@@ -1,4 +1,4 @@
-import type { Branch, Menu, Order, OrderItem, OrderStatus, RestaurantTable } from "@prisma/client";
+import type { Branch, Menu, Order, OrderItem, OrderStatus, Prisma, RestaurantTable } from "@prisma/client";
 import type { DbClient } from "../shared/prisma/types.js";
 
 export type OrderRecord = Order & {
@@ -101,5 +101,37 @@ export const updateOrderStatusByTenant = async (
   return findOrderByTenant(db, {
     tenantId: input.tenantId,
     orderId: input.orderId
+  });
+};
+
+export const createOrderWithItems = async (
+  db: DbClient,
+  input: {
+    tenantId: string;
+    branchId: string;
+    tableId: string;
+    total: Prisma.Decimal;
+    items: Array<{
+      menuId: string;
+      quantity: number;
+      unitPrice: Prisma.Decimal;
+    }>;
+  }
+): Promise<OrderRecord> => {
+  return db.order.create({
+    data: {
+      tenantId: input.tenantId,
+      branchId: input.branchId,
+      tableId: input.tableId,
+      total: input.total,
+      items: {
+        create: input.items.map((item) => ({
+          menuId: item.menuId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice
+        }))
+      }
+    },
+    include: orderInclude
   });
 };
