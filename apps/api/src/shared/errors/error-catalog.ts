@@ -8,10 +8,8 @@ export const ErrorCode = {
   MenuNotFound: "MENU_NOT_FOUND",
   MissingAuthContext: "MISSING_AUTH_CONTEXT",
   MissingToken: "MISSING_TOKEN",
-  OrderNotFound: "ORDER_NOT_FOUND",
   RouteNotFound: "ROUTE_NOT_FOUND",
   TableNotFound: "TABLE_NOT_FOUND",
-  TableUnavailable: "TABLE_UNAVAILABLE",
   TokenExpired: "TOKEN_EXPIRED",
   ValidationError: "VALIDATION_ERROR"
 } as const;
@@ -70,11 +68,6 @@ export const errorCatalog = {
     message: "Missing bearer token",
     statusCode: 401
   },
-  [ErrorCode.OrderNotFound]: {
-    code: ErrorCode.OrderNotFound,
-    message: "Order not found",
-    statusCode: 404
-  },
   [ErrorCode.RouteNotFound]: {
     code: ErrorCode.RouteNotFound,
     message: "Route not found",
@@ -84,11 +77,6 @@ export const errorCatalog = {
     code: ErrorCode.TableNotFound,
     message: "Table not found",
     statusCode: 404
-  },
-  [ErrorCode.TableUnavailable]: {
-    code: ErrorCode.TableUnavailable,
-    message: "Table is unavailable",
-    statusCode: 409
   },
   [ErrorCode.TokenExpired]: {
     code: ErrorCode.TokenExpired,
