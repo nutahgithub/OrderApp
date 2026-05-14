@@ -11,6 +11,7 @@ const errorCodeToMessageKey: Record<string, MessageKey> = {
   MENU_NOT_FOUND: MessageKey.ResourceNotFound,
   MISSING_AUTH_CONTEXT: MessageKey.AuthSessionExpired,
   MISSING_TOKEN: MessageKey.AuthSessionExpired,
+  ORDER_NOT_FOUND: MessageKey.ResourceNotFound,
   TABLE_NOT_FOUND: MessageKey.ResourceNotFound,
   TOKEN_EXPIRED: MessageKey.AuthSessionExpired,
   VALIDATION_ERROR: MessageKey.ValidationFailed

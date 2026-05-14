@@ -8,6 +8,7 @@ export const ErrorCode = {
   MenuNotFound: "MENU_NOT_FOUND",
   MissingAuthContext: "MISSING_AUTH_CONTEXT",
   MissingToken: "MISSING_TOKEN",
+  OrderNotFound: "ORDER_NOT_FOUND",
   RouteNotFound: "ROUTE_NOT_FOUND",
   TableNotFound: "TABLE_NOT_FOUND",
   TokenExpired: "TOKEN_EXPIRED",
@@ -67,6 +68,11 @@ export const errorCatalog = {
     code: ErrorCode.MissingToken,
     message: "Missing bearer token",
     statusCode: 401
+  },
+  [ErrorCode.OrderNotFound]: {
+    code: ErrorCode.OrderNotFound,
+    message: "Order not found",
+    statusCode: 404
   },
   [ErrorCode.RouteNotFound]: {
     code: ErrorCode.RouteNotFound,

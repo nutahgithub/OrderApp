@@ -337,6 +337,13 @@ a:focus-visible {
   gap: 12px;
 }
 
+.order-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 220px) auto;
+  align-items: end;
+  gap: 12px;
+}
+
 .table-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 180px auto;
@@ -374,6 +381,87 @@ a:focus-visible {
 .menu-list {
   display: grid;
   gap: 10px;
+}
+
+.orders-workspace {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.15fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.order-list,
+.order-items,
+.order-detail-panel,
+.order-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.order-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e3e7e0;
+  border-radius: 8px;
+  color: #202124;
+  background: #fbfcfa;
+  text-align: left;
+  cursor: pointer;
+}
+
+.order-row--active,
+.order-row:hover {
+  border-color: #9bcfbd;
+  background: #f1fbf5;
+}
+
+.order-row span:first-child,
+.order-item-row div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.order-row strong,
+.order-row small,
+.order-item-row strong,
+.order-item-row span {
+  overflow-wrap: anywhere;
+}
+
+.order-row small,
+.order-item-row span {
+  color: #68736f;
+  font-size: 13px;
+}
+
+.order-row b,
+.order-item-row b,
+.order-total-row strong {
+  color: #1f6f61;
+}
+
+.order-item-row,
+.order-total-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e7e4da;
+}
+
+.order-total-row {
+  border-bottom: 0;
+  font-weight: 800;
+}
+
+.order-actions {
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
 }
 
 .table-row {
@@ -492,6 +580,33 @@ a:focus-visible {
 }
 
 .status-pill--disabled {
+  color: #6c2a24;
+  background: #ffe0dc;
+}
+
+.status-pill--order-pending {
+  color: #694d12;
+  background: #fff1c7;
+}
+
+.status-pill--order-confirmed,
+.status-pill--order-preparing {
+  color: #17406d;
+  background: #e0efff;
+}
+
+.status-pill--order-ready {
+  color: #1f3f3b;
+  background: #dff6e9;
+}
+
+.status-pill--order-served,
+.status-pill--order-paid {
+  color: #334155;
+  background: #e9eef3;
+}
+
+.status-pill--order-cancelled {
   color: #6c2a24;
   background: #ffe0dc;
 }
@@ -665,6 +780,8 @@ a:focus-visible {
   .table-form,
   .menu-form,
   .table-toolbar,
+  .order-toolbar,
+  .orders-workspace,
   .branch-row {
     grid-template-columns: 1fr;
   }
@@ -685,6 +802,7 @@ a:focus-visible {
 
   .table-row-main,
   .qr-url,
+  .order-row,
   .menu-row,
   .menu-row-main,
   .menu-row-actions {
@@ -707,7 +825,8 @@ a:focus-visible {
   }
 
   .menu-row-actions .button,
-  .branch-form-actions .button {
+  .branch-form-actions .button,
+  .order-actions .button {
     width: 100%;
   }
 

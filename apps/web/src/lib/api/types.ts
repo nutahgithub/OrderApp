@@ -97,6 +97,48 @@ export type TableResponse = {
   table: RestaurantTable;
 };
 
+export type OrderStatus = "PENDING" | "CONFIRMED" | "PREPARING" | "READY" | "SERVED" | "CANCELLED" | "PAID";
+
+export type Order = {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  branchName: string;
+  tableId: string;
+  tableName: string;
+  status: OrderStatus;
+  total: string;
+  itemCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OrderItem = {
+  id: string;
+  menuId: string;
+  menuName: string;
+  quantity: number;
+  unitPrice: string;
+  lineTotal: string;
+  createdAt: string;
+};
+
+export type OrderDetail = Order & {
+  items: OrderItem[];
+};
+
+export type UpdateOrderStatusRequest = {
+  status: "CONFIRMED" | "PREPARING" | "READY" | "SERVED" | "CANCELLED";
+};
+
+export type ListOrdersResponse = {
+  orders: Order[];
+};
+
+export type OrderResponse = {
+  order: OrderDetail;
+};
+
 export type Menu = {
   id: string;
   tenantId: string;

@@ -8,6 +8,7 @@ import { AdminBranchesPage } from "../pages/admin/AdminBranchesPage";
 import { AdminDashboardPage } from "../pages/admin/AdminDashboardPage";
 import { AdminLoginPage } from "../pages/admin/AdminLoginPage";
 import { AdminMenusPage } from "../pages/admin/AdminMenusPage";
+import { AdminOrdersPage } from "../pages/admin/AdminOrdersPage";
 import { AdminTablesPage } from "../pages/admin/AdminTablesPage";
 import { CustomerQrEntryPage } from "../pages/customer/CustomerQrEntryPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
@@ -26,6 +27,7 @@ export const App = () => {
                 <Route path="/admin/branches" element={<AdminBranchesPage />} />
                 <Route path="/admin/tables" element={<AdminTablesPage />} />
                 <Route path="/admin/menus" element={<AdminMenusPage />} />
+                <Route path="/admin/orders" element={<AdminOrdersPage />} />
               </Route>
             </Route>
             <Route element={<CustomerLayout />}>

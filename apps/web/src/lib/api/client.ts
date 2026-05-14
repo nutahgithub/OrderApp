@@ -9,14 +9,18 @@ import type {
   HealthResponse,
   ListBranchesResponse,
   ListMenusResponse,
+  ListOrdersResponse,
   ListTablesResponse,
   LoginRequest,
   LoginResponse,
   MenuFormRequest,
   MenuResponse,
+  OrderResponse,
+  OrderStatus,
   QrEntryResponse,
   TableFormRequest,
   TableResponse,
+  UpdateOrderStatusRequest,
   UploadImageRequest,
   UploadImageResponse
 } from "./types";
@@ -122,6 +126,35 @@ export const apiClient = {
         name: body.name,
         status: body.status
       })
+    }),
+  listOrders: (token: string, branchId: string, status?: OrderStatus) => {
+    const params = new URLSearchParams({
+      branchId
+    });
+
+    if (status) {
+      params.set("status", status);
+    }
+
+    return request<ListOrdersResponse>(`/admin/orders?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+  },
+  getOrder: (token: string, orderId: string) =>
+    request<OrderResponse>(`/admin/orders/${orderId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+  updateOrderStatus: (token: string, orderId: string, body: UpdateOrderStatusRequest) =>
+    request<OrderResponse>(`/admin/orders/${orderId}/status`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(body)
     }),
   listMenus: (token: string) =>
     request<ListMenusResponse>("/admin/menus", {
