@@ -633,6 +633,107 @@ a:focus-visible {
   color: #1f6f61;
 }
 
+.customer-menu-row .button {
+  flex: 0 0 auto;
+}
+
+.customer-cart,
+.customer-order-summary {
+  display: grid;
+  gap: 14px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid #e7e4da;
+}
+
+.customer-muted {
+  margin: 0;
+  color: #68736f;
+  font-size: 14px;
+}
+
+.customer-cart-list {
+  display: grid;
+  gap: 10px;
+}
+
+.customer-cart-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eeeae1;
+}
+
+.customer-cart-row div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.customer-cart-row strong,
+.customer-cart-row span {
+  overflow-wrap: anywhere;
+}
+
+.customer-cart-row span {
+  color: #68736f;
+  font-size: 13px;
+}
+
+.customer-cart-row b {
+  color: #1f6f61;
+}
+
+.quantity-controls {
+  display: grid;
+  grid-template-columns: repeat(4, 34px);
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.quantity-controls button,
+.quantity-controls span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid #d7ddd5;
+  border-radius: 8px;
+  color: #16312f;
+  background: #ffffff;
+  font-weight: 800;
+}
+
+.quantity-controls button {
+  cursor: pointer;
+}
+
+.quantity-controls button:hover {
+  background: #eef2ee;
+}
+
+.customer-total-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+  color: #1f3f3b;
+  font-weight: 800;
+}
+
+.customer-submit {
+  width: 100%;
+}
+
+.customer-order-summary h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
 @media (max-width: 780px) {
   .admin-shell {
     grid-template-columns: 1fr;
@@ -718,5 +819,24 @@ a:focus-visible {
 
   .customer-menu-row b {
     margin-left: 0;
+  }
+
+  .customer-menu-row .button,
+  .customer-submit {
+    width: 100%;
+  }
+
+  .customer-cart-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .quantity-controls {
+    grid-template-columns: repeat(4, minmax(34px, 1fr));
+  }
+
+  .quantity-controls button,
+  .quantity-controls span {
+    width: 100%;
   }
 }

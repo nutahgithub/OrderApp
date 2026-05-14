@@ -162,3 +162,45 @@ export type QrEntry = {
 export type QrEntryResponse = {
   qrEntry: QrEntry;
 };
+
+export type OrderStatus = "PENDING" | "CONFIRMED" | "PREPARING" | "READY" | "SERVED" | "CANCELLED" | "PAID";
+
+export type CreateOrderRequest = {
+  items: Array<{
+    menuId: string;
+    quantity: number;
+  }>;
+};
+
+export type OrderItem = {
+  id: string;
+  menuId: string;
+  name: string;
+  quantity: number;
+  unitPrice: string;
+  lineTotal: string;
+};
+
+export type OrderSummary = {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  tableId: string;
+  status: OrderStatus;
+  total: string;
+  createdAt: string;
+  updatedAt: string;
+  branch: {
+    id: string;
+    name: string;
+  };
+  table: {
+    id: string;
+    name: string;
+  };
+  items: OrderItem[];
+};
+
+export type OrderResponse = {
+  order: OrderSummary;
+};
