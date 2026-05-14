@@ -97,6 +97,55 @@ export type TableResponse = {
   table: RestaurantTable;
 };
 
+export type Menu = {
+  id: string;
+  tenantId: string;
+  name: string;
+  price: string;
+  imageUrl: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MenuFormRequest = {
+  name: string;
+  price: string;
+  imageUrl?: string | null;
+  isActive: boolean;
+};
+
+export type CreateMenuRequest = {
+  name: string;
+  price: string;
+  imageUrl?: string | null;
+  isActive?: boolean;
+};
+
+export type ListMenusResponse = {
+  menus: Menu[];
+};
+
+export type MenuResponse = {
+  menu: Menu;
+};
+
+export type UploadImageRequest = {
+  fileName: string;
+  contentType: "image/jpeg" | "image/png" | "image/webp";
+  dataBase64: string;
+};
+
+export type UploadImage = {
+  url: string;
+  key: string;
+  sizeBytes: number;
+};
+
+export type UploadImageResponse = {
+  upload: UploadImage;
+};
+
 export type QrEntry = {
   tenantId: string;
   branch: {

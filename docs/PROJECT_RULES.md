@@ -92,6 +92,9 @@ File này là bộ rule chung cho project. Mỗi lần bắt đầu một prompt
 
 - Frontend admin là giao diện vận hành chính cho chủ/quản lý/nhân viên nhà hàng.
 - Frontend customer QR là giao diện mobile-first cho khách đặt món tại bàn.
+- Khi thiết kế UI, cần ưu tiên trải nghiệm người dùng thật: giao diện phải dễ hiểu, dễ thao tác, đẹp, gọn, tối ưu cho tác vụ chính và phù hợp với bối cảnh nhà hàng/cafe.
+- Không chỉ làm UI "chạy được"; mỗi màn hình cần được thiết kế sao cho user có thể tự sử dụng rõ ràng, ít nhầm lẫn, thấy được hành động chính, trạng thái hiện tại và kết quả sau thao tác.
+- Các luồng tạo/sửa/xóa hoặc bật/tắt trạng thái phải có wording rõ nghĩa, feedback sau khi thao tác, loading/disabled state phù hợp, và tránh để user phải đoán dữ liệu đã lưu hay chưa.
 - UI admin cần gọn, rõ, tối ưu thao tác lặp lại, không làm kiểu landing page.
 - UI customer cần nhanh, dễ đọc trên điện thoại, thao tác đặt món ít bước.
 - Mọi màn hình chính phải có loading, error, empty state.
@@ -100,7 +103,9 @@ File này là bộ rule chung cho project. Mỗi lần bắt đầu một prompt
 - Frontend xử lý lỗi dựa trên `error.code` trước, `message` chỉ dùng để hiển thị hoặc fallback.
 - Frontend message hiển thị cho user phải được tập trung trong `lib/i18n/messages.ts`.
 - Frontend error mapping từ API `error.code` sang user message phải ưu tiên dùng mapper chung trong `lib/i18n/error-messages.ts`. Chỉ tạo mapper riêng cho feature khi lỗi đó cần wording theo ngữ cảnh đặc biệt.
-- Khi cần đa ngôn ngữ, thêm locale dictionary mới và giữ nguyên `MessageKey`.
+- UI phải hỗ trợ đa ngôn ngữ theo hướng common, dễ maintain: mọi text user nhìn thấy cần đi qua i18n key chung, không hard-code rải rác trong page/component nếu text đó cần dịch.
+- Khi cần đa ngôn ngữ, thêm locale dictionary mới và giữ nguyên `MessageKey`; TypeScript phải đảm bảo locale mới có đủ key trước khi build pass.
+- Component dùng `useI18n()` hoặc helper i18n chung để lấy `t`, `locale`, `setLocale`; không tự đọc localStorage hoặc tự map ngôn ngữ riêng lẻ trong từng page.
 - State realtime cần được đồng bộ với Socket.IO event và fallback refresh khi cần.
 - Không hard-code tenant/branch/table trong UI ngoài dữ liệu seed/demo có ghi chú.
 

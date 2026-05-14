@@ -47,11 +47,13 @@ const main = async () => {
       id: "demo-menu-1",
       tenantId: tenant.id,
       name: "House Coffee",
-      price: "45000"
+      price: "45000",
+      imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93"
     },
     update: {
       name: "House Coffee",
       price: "45000",
+      imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93",
       isActive: true
     }
   });

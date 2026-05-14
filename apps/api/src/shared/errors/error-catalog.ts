@@ -3,7 +3,9 @@ export const ErrorCode = {
   BranchNotFound: "BRANCH_NOT_FOUND",
   InternalError: "INTERNAL_ERROR",
   InvalidCredentials: "INVALID_CREDENTIALS",
+  InvalidUpload: "INVALID_UPLOAD",
   InvalidToken: "INVALID_TOKEN",
+  MenuNotFound: "MENU_NOT_FOUND",
   MissingAuthContext: "MISSING_AUTH_CONTEXT",
   MissingToken: "MISSING_TOKEN",
   RouteNotFound: "ROUTE_NOT_FOUND",
@@ -41,10 +43,20 @@ export const errorCatalog = {
     message: "Invalid email or password",
     statusCode: 401
   },
+  [ErrorCode.InvalidUpload]: {
+    code: ErrorCode.InvalidUpload,
+    message: "Invalid image upload",
+    statusCode: 400
+  },
   [ErrorCode.InvalidToken]: {
     code: ErrorCode.InvalidToken,
     message: "Invalid token",
     statusCode: 401
+  },
+  [ErrorCode.MenuNotFound]: {
+    code: ErrorCode.MenuNotFound,
+    message: "Menu item not found",
+    statusCode: 404
   },
   [ErrorCode.MissingAuthContext]: {
     code: ErrorCode.MissingAuthContext,

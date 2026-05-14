@@ -3,6 +3,8 @@ import { StateMessage } from "../../components/ui/StateMessage";
 import { useAuth } from "../../features/auth/AuthContext";
 import { apiClient } from "../../lib/api/client";
 import type { HealthResponse } from "../../lib/api/types";
+import { useI18n } from "../../lib/i18n/I18nContext";
+import { MessageKey } from "../../lib/i18n/messages";
 
 type HealthState =
   | { status: "loading" }
@@ -11,6 +13,7 @@ type HealthState =
 
 export const AdminDashboardPage = () => {
   const { admin, token, logout } = useAuth();
+  const { t } = useI18n();
   const [health, setHealth] = useState<HealthState>({ status: "loading" });
   const [sessionCheck, setSessionCheck] = useState<HealthState>({ status: "loading" });
 
@@ -26,7 +29,7 @@ export const AdminDashboardPage = () => {
       })
       .catch((error: unknown) => {
         if (isMounted) {
-          const message = error instanceof Error ? error.message : "Unable to reach API";
+          const message = error instanceof Error ? error.message : t(MessageKey.DashboardUnableToReachApi);
           setHealth({ status: "error", message });
         }
       });
@@ -34,13 +37,13 @@ export const AdminDashboardPage = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let isMounted = true;
 
     if (!token) {
-      setSessionCheck({ status: "error", message: "Missing token" });
+      setSessionCheck({ status: "error", message: t(MessageKey.DashboardMissingToken) });
       return () => {
         isMounted = false;
       };
@@ -61,7 +64,7 @@ export const AdminDashboardPage = () => {
       })
       .catch((error: unknown) => {
         if (isMounted) {
-          const message = error instanceof Error ? error.message : "Unable to validate session";
+          const message = error instanceof Error ? error.message : t(MessageKey.DashboardUnableToValidateSession);
           setSessionCheck({ status: "error", message });
           logout();
         }
@@ -70,42 +73,49 @@ export const AdminDashboardPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [logout, token]);
+  }, [logout, t, token]);
 
   return (
     <section className="page-stack">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Operations</p>
-          <h1>Dashboard</h1>
-          {admin ? <p className="page-subtitle">Signed in as {admin.email}</p> : null}
+          <p className="eyebrow">{t(MessageKey.DashboardEyebrow)}</p>
+          <h1>{t(MessageKey.DashboardTitle)}</h1>
+          {admin ? <p className="page-subtitle">{t(MessageKey.DashboardSignedInAs, { email: admin.email })}</p> : null}
         </div>
       </header>
 
       <div className="dashboard-grid">
         <section className="panel">
-          <h2>API Status</h2>
-          {health.status === "loading" ? <StateMessage title="Checking API" /> : null}
+          <h2>{t(MessageKey.DashboardApiStatus)}</h2>
+          {health.status === "loading" ? <StateMessage title={t(MessageKey.DashboardCheckingApi)} /> : null}
           {health.status === "error" ? (
-            <StateMessage title="API unavailable" description={health.message} tone="error" />
+            <StateMessage title={t(MessageKey.DashboardApiUnavailable)} description={health.message} tone="error" />
           ) : null}
           {health.status === "success" ? (
             <StateMessage
-              title="API connected"
-              description={`${health.data.service} is ${health.data.status}`}
+              title={t(MessageKey.DashboardApiConnected)}
+              description={t(MessageKey.DashboardApiConnectedDescription, {
+                service: health.data.service,
+                status: health.data.status
+              })}
               tone="success"
             />
           ) : null}
         </section>
 
         <section className="panel">
-          <h2>Session</h2>
-          {sessionCheck.status === "loading" ? <StateMessage title="Checking session" /> : null}
+          <h2>{t(MessageKey.DashboardSession)}</h2>
+          {sessionCheck.status === "loading" ? <StateMessage title={t(MessageKey.DashboardCheckingSession)} /> : null}
           {sessionCheck.status === "error" ? (
-            <StateMessage title="Session invalid" description={sessionCheck.message} tone="error" />
+            <StateMessage title={t(MessageKey.DashboardSessionInvalid)} description={sessionCheck.message} tone="error" />
           ) : null}
           {sessionCheck.status === "success" ? (
-            <StateMessage title="Admin session active" description={sessionCheck.data.service} tone="success" />
+            <StateMessage
+              title={t(MessageKey.DashboardSessionActive)}
+              description={sessionCheck.data.service}
+              tone="success"
+            />
           ) : null}
         </section>
       </div>

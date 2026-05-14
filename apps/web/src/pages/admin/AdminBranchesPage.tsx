@@ -7,7 +7,8 @@ import { useAuth } from "../../features/auth/AuthContext";
 import { apiClient } from "../../lib/api/client";
 import type { Branch } from "../../lib/api/types";
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
-import { MessageKey, t } from "../../lib/i18n/messages";
+import { useI18n } from "../../lib/i18n/I18nContext";
+import { MessageKey } from "../../lib/i18n/messages";
 
 type BranchesState =
   | { status: "loading" }
@@ -21,10 +22,12 @@ type EditingBranch = {
 
 export const AdminBranchesPage = () => {
   const { token, logout } = useAuth();
+  const { locale, t } = useI18n();
   const [branchesState, setBranchesState] = useState<BranchesState>({ status: "loading" });
   const [newBranchName, setNewBranchName] = useState("");
   const [editingBranch, setEditingBranch] = useState<EditingBranch | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadBranches = useCallback(async () => {
@@ -40,9 +43,9 @@ export const AdminBranchesPage = () => {
       const response = await apiClient.listBranches(token);
       setBranchesState({ status: "success", branches: response.branches });
     } catch (error: unknown) {
-      setBranchesState({ status: "error", message: getUserErrorMessage(error) });
+      setBranchesState({ status: "error", message: getUserErrorMessage(error, MessageKey.RequestFailed, locale) });
     }
-  }, [logout, token]);
+  }, [locale, logout, t, token]);
 
   useEffect(() => {
     void loadBranches();
@@ -57,6 +60,7 @@ export const AdminBranchesPage = () => {
     }
 
     setFormError(null);
+    setSuccessMessage(null);
     setIsSubmitting(true);
 
     try {
@@ -65,8 +69,9 @@ export const AdminBranchesPage = () => {
       });
       setNewBranchName("");
       await loadBranches();
+      setSuccessMessage(t(MessageKey.BranchesCreated));
     } catch (error: unknown) {
-      setFormError(getUserErrorMessage(error));
+      setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
     } finally {
       setIsSubmitting(false);
     }
@@ -81,6 +86,7 @@ export const AdminBranchesPage = () => {
     }
 
     setFormError(null);
+    setSuccessMessage(null);
     setIsSubmitting(true);
 
     try {
@@ -89,8 +95,9 @@ export const AdminBranchesPage = () => {
       });
       setEditingBranch(null);
       await loadBranches();
+      setSuccessMessage(t(MessageKey.BranchesUpdated));
     } catch (error: unknown) {
-      setFormError(getUserErrorMessage(error));
+      setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
     } finally {
       setIsSubmitting(false);
     }
@@ -102,19 +109,20 @@ export const AdminBranchesPage = () => {
     <section className="page-stack">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Setup</p>
-          <h1>Branches</h1>
-          <p className="page-subtitle">Manage restaurant branches for this tenant.</p>
+          <p className="eyebrow">{t(MessageKey.Setup)}</p>
+          <h1>{t(MessageKey.BranchesTitle)}</h1>
+          <p className="page-subtitle">{t(MessageKey.BranchesSubtitle)}</p>
         </div>
       </header>
 
       <section className="panel branch-form-panel">
-        <h2>{editingBranch ? "Edit branch" : "Create branch"}</h2>
+        <h2>{editingBranch ? t(MessageKey.BranchesEditTitle) : t(MessageKey.BranchesCreateTitle)}</h2>
+        <p className="form-hint">{t(MessageKey.BranchesHint)}</p>
         <form className="branch-form" onSubmit={editingBranch ? handleUpdate : handleCreate}>
           <Input
-            label="Branch name"
+            label={t(MessageKey.BranchesNameLabel)}
             name="branchName"
-            placeholder="Main Branch"
+            placeholder={t(MessageKey.BranchesNamePlaceholder)}
             value={editingBranch ? editingBranch.name : newBranchName}
             onChange={(event) => {
               if (editingBranch) {
@@ -131,33 +139,48 @@ export const AdminBranchesPage = () => {
                 type="button"
                 className="button--ghost"
                 disabled={isSubmitting}
-                onClick={() => setEditingBranch(null)}
+                onClick={() => {
+                  setEditingBranch(null);
+                  setFormError(null);
+                }}
               >
-                Cancel
+                {t(MessageKey.Cancel)}
               </Button>
             ) : null}
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : editingBranch ? "Save changes" : "Create branch"}
+              {isSubmitting
+                ? t(MessageKey.Saving)
+                : editingBranch
+                  ? t(MessageKey.SaveChanges)
+                  : t(MessageKey.BranchesCreateButton)}
             </Button>
           </div>
         </form>
-        {formError ? <StateMessage title="Unable to save branch" description={formError} tone="error" /> : null}
+        {successMessage ? <StateMessage title={successMessage} tone="success" /> : null}
+        {formError ? (
+          <StateMessage title={t(MessageKey.BranchesUnableToSave)} description={formError} tone="error" />
+        ) : null}
       </section>
 
       <section className="panel">
         <div className="section-header">
-          <h2>Branch list</h2>
+          <div>
+            <h2>{t(MessageKey.BranchesListTitle)}</h2>
+            {branches.length > 0 ? (
+              <p className="section-subtitle">{t(MessageKey.BranchesTotal, { count: branches.length })}</p>
+            ) : null}
+          </div>
           <Button type="button" className="button--secondary button--inline" onClick={() => void loadBranches()}>
-            Retry
+            {t(MessageKey.Refresh)}
           </Button>
         </div>
 
-        {branchesState.status === "loading" ? <StateMessage title="Loading branches" /> : null}
+        {branchesState.status === "loading" ? <StateMessage title={t(MessageKey.BranchesLoading)} /> : null}
         {branchesState.status === "error" ? (
-          <StateMessage title="Unable to load branches" description={branchesState.message} tone="error" />
+          <StateMessage title={t(MessageKey.BranchesUnableToLoad)} description={branchesState.message} tone="error" />
         ) : null}
         {branchesState.status === "success" && branches.length === 0 ? (
-          <StateMessage title="No branches yet" description="Create the first branch to start setup." />
+          <StateMessage title={t(MessageKey.BranchesEmptyTitle)} description={t(MessageKey.BranchesEmptyDescription)} />
         ) : null}
         {branches.length > 0 ? (
           <div className="branch-list">
@@ -165,14 +188,20 @@ export const AdminBranchesPage = () => {
               <article className="branch-row" key={branch.id}>
                 <div>
                   <strong>{branch.name}</strong>
-                  <span>Updated {new Date(branch.updatedAt).toLocaleString()}</span>
+                  <span>
+                    {t(MessageKey.Updated)} {new Date(branch.updatedAt).toLocaleString(locale)}
+                  </span>
                 </div>
                 <Button
                   type="button"
                   className="button--secondary button--inline"
-                  onClick={() => setEditingBranch({ id: branch.id, name: branch.name })}
+                  onClick={() => {
+                    setFormError(null);
+                    setSuccessMessage(null);
+                    setEditingBranch({ id: branch.id, name: branch.name });
+                  }}
                 >
-                  Edit
+                  {t(MessageKey.Edit)}
                 </Button>
               </article>
             ))}

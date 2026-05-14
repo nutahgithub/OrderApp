@@ -1,0 +1,97 @@
+import { Prisma } from "@prisma/client";
+import type { Menu } from "@prisma/client";
+import { findTableQrEntry } from "../repositories/table.repository.js";
+import { createMenu, listActiveMenusByTenant, listMenusByTenant, updateMenuByTenant } from "../repositories/menu.repository.js";
+import { AppError } from "../shared/errors/app-error.js";
+import { ErrorCode } from "../shared/errors/error-catalog.js";
+import { logger } from "../shared/logger/logger.js";
+import { prisma } from "../shared/prisma/client.js";
+import type { CreateMenuInput, MenuDto, UpdateMenuInput } from "../types/menu.types.js";
+
+const normalizePrice = (price: string): string => {
+  return new Prisma.Decimal(price).toFixed(2);
+};
+
+const toMenuDto = (menu: Menu): MenuDto => {
+  return {
+    id: menu.id,
+    tenantId: menu.tenantId,
+    name: menu.name,
+    price: menu.price.toFixed(2),
+    imageUrl: menu.imageUrl,
+    isActive: menu.isActive,
+    createdAt: menu.createdAt.toISOString(),
+    updatedAt: menu.updatedAt.toISOString()
+  };
+};
+
+export const listTenantMenus = async (tenantId: string): Promise<MenuDto[]> => {
+  const menus = await listMenusByTenant(prisma, tenantId);
+
+  return menus.map(toMenuDto);
+};
+
+export const createTenantMenu = async (tenantId: string, input: CreateMenuInput): Promise<MenuDto> => {
+  const menu = await createMenu(prisma, {
+    tenantId,
+    name: input.name.trim(),
+    price: normalizePrice(input.price),
+    imageUrl: input.imageUrl ?? null,
+    isActive: input.isActive
+  });
+
+  logger.info("menu_created", {
+    tenantId,
+    menuId: menu.id,
+    isActive: menu.isActive
+  });
+
+  return toMenuDto(menu);
+};
+
+export const updateTenantMenu = async (
+  tenantId: string,
+  menuId: string,
+  input: UpdateMenuInput
+): Promise<MenuDto> => {
+  const menu = await updateMenuByTenant(prisma, {
+    tenantId,
+    menuId,
+    name: input.name.trim(),
+    price: normalizePrice(input.price),
+    imageUrl: input.imageUrl ?? null,
+    isActive: input.isActive
+  });
+
+  if (!menu) {
+    throw new AppError(ErrorCode.MenuNotFound);
+  }
+
+  logger.info("menu_updated", {
+    tenantId,
+    menuId: menu.id,
+    isActive: menu.isActive
+  });
+
+  return toMenuDto(menu);
+};
+
+export const listPublicQrMenus = async (
+  tenantId: string,
+  branchId: string,
+  tableId: string
+): Promise<MenuDto[]> => {
+  const table = await findTableQrEntry(prisma, {
+    tenantId,
+    branchId,
+    tableId
+  });
+
+  if (!table) {
+    throw new AppError(ErrorCode.TableNotFound);
+  }
+
+  const menus = await listActiveMenusByTenant(prisma, tenantId);
+
+  return menus.map(toMenuDto);
+};

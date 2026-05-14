@@ -4,15 +4,21 @@ import type {
   BranchFormRequest,
   BranchResponse,
   CurrentAdminResponse,
+  CreateMenuRequest,
   CreateTableRequest,
   HealthResponse,
   ListBranchesResponse,
+  ListMenusResponse,
   ListTablesResponse,
   LoginRequest,
   LoginResponse,
+  MenuFormRequest,
+  MenuResponse,
   QrEntryResponse,
   TableFormRequest,
-  TableResponse
+  TableResponse,
+  UploadImageRequest,
+  UploadImageResponse
 } from "./types";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
@@ -117,8 +123,42 @@ export const apiClient = {
         status: body.status
       })
     }),
+  listMenus: (token: string) =>
+    request<ListMenusResponse>("/admin/menus", {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+  createMenu: (token: string, body: CreateMenuRequest) =>
+    request<MenuResponse>("/admin/menus", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(body)
+    }),
+  updateMenu: (token: string, menuId: string, body: MenuFormRequest) =>
+    request<MenuResponse>(`/admin/menus/${menuId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(body)
+    }),
+  uploadMenuImage: (token: string, body: UploadImageRequest) =>
+    request<UploadImageResponse>("/admin/uploads/menu-images", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(body)
+    }),
   getQrEntry: (tenantId: string, branchId: string, tableId: string) =>
     request<QrEntryResponse>(
       `/qr/${encodeURIComponent(tenantId)}/${encodeURIComponent(branchId)}/${encodeURIComponent(tableId)}`
+    ),
+  listPublicMenus: (tenantId: string, branchId: string, tableId: string) =>
+    request<ListMenusResponse>(
+      `/qr/${encodeURIComponent(tenantId)}/${encodeURIComponent(branchId)}/${encodeURIComponent(tableId)}/menu`
     )
 };

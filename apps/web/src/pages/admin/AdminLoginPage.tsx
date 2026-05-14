@@ -3,13 +3,16 @@ import type { FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
+import { LanguageSwitcher } from "../../components/ui/LanguageSwitcher";
 import { StateMessage } from "../../components/ui/StateMessage";
 import { useAuth } from "../../features/auth/AuthContext";
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
-import { MessageKey, t } from "../../lib/i18n/messages";
+import { useI18n } from "../../lib/i18n/I18nContext";
+import { MessageKey } from "../../lib/i18n/messages";
 
 export const AdminLoginPage = () => {
   const { isAuthenticated, login } = useAuth();
+  const { locale, t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState("admin@example.com");
@@ -37,7 +40,7 @@ export const AdminLoginPage = () => {
       });
       navigate(from, { replace: true });
     } catch (loginError: unknown) {
-      setError(getUserErrorMessage(loginError));
+      setError(getUserErrorMessage(loginError, MessageKey.RequestFailed, locale));
     } finally {
       setIsSubmitting(false);
     }
@@ -46,11 +49,14 @@ export const AdminLoginPage = () => {
   return (
     <main className="login-page">
       <section className="login-panel">
-        <p className="eyebrow">Admin</p>
-        <h1>Sign in</h1>
+        <div className="login-panel-top">
+          <p className="eyebrow">{t(MessageKey.Admin)}</p>
+          <LanguageSwitcher />
+        </div>
+        <h1>{t(MessageKey.AuthSignInTitle)}</h1>
         <form className="form-stack" onSubmit={handleSubmit}>
           <Input
-            label="Email"
+            label={t(MessageKey.Email)}
             name="email"
             type="email"
             placeholder="admin@example.com"
@@ -59,17 +65,17 @@ export const AdminLoginPage = () => {
             required
           />
           <Input
-            label="Password"
+            label={t(MessageKey.Password)}
             name="password"
             type="password"
-            placeholder="Password"
+            placeholder={t(MessageKey.Password)}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
           />
           {error ? <StateMessage title={t(MessageKey.AuthLoginFailedTitle)} description={error} tone="error" /> : null}
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Signing in..." : "Continue"}
+            {isSubmitting ? t(MessageKey.AuthSigningIn) : t(MessageKey.Continue)}
           </Button>
         </form>
       </section>

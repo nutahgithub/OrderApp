@@ -1,3 +1,5 @@
+// npx vitest run src\services\__tests__\branch.service.test.ts
+
 import type { Branch } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createBranch, listBranchesByTenant, updateBranchByTenant } from "../../repositories/branch.repository.js";
