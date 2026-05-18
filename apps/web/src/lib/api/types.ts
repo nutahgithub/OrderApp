@@ -131,6 +131,28 @@ export type UpdateOrderStatusRequest = {
   status: "CONFIRMED" | "PREPARING" | "READY" | "SERVED" | "CANCELLED";
 };
 
+export type PaymentMethod = "CASH";
+
+export type PaymentStatus = "COMPLETED";
+
+export type Payment = {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  orderId: string;
+  method: PaymentMethod;
+  amount: string;
+  status: PaymentStatus;
+  paidAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ConfirmPaymentRequest = {
+  amount: string;
+  method: PaymentMethod;
+};
+
 export type CreateQrOrderRequest = {
   items: Array<{
     menuId: string;
@@ -144,6 +166,11 @@ export type ListOrdersResponse = {
 
 export type OrderResponse = {
   order: OrderDetail;
+};
+
+export type PaymentResponse = {
+  order: OrderDetail;
+  payment: Payment;
 };
 
 export type Menu = {

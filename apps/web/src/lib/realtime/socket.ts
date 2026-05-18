@@ -1,6 +1,6 @@
 import { io } from "socket.io-client";
 import type { Socket } from "socket.io-client";
-import type { Order, OrderDetail } from "../api/types";
+import type { Order, OrderDetail, Payment } from "../api/types";
 
 export const realtimeBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 
@@ -10,7 +10,8 @@ export const RealtimeEvent = {
   ConnectionReady: "connection.ready",
   RoomJoined: "room.joined",
   OrderCreated: "order.created",
-  OrderStatusUpdated: "order.status_updated"
+  OrderStatusUpdated: "order.status_updated",
+  PaymentCompleted: "payment.completed"
 } as const;
 
 type ServerToClientEvents = {
@@ -18,6 +19,7 @@ type ServerToClientEvents = {
   [RealtimeEvent.RoomJoined]: (payload: { room: string }) => void;
   [RealtimeEvent.OrderCreated]: (payload: { order: Order }) => void;
   [RealtimeEvent.OrderStatusUpdated]: (payload: { order: OrderDetail }) => void;
+  [RealtimeEvent.PaymentCompleted]: (payload: { order: OrderDetail; payment: Payment }) => void;
 };
 
 type ClientToServerEvents = {
@@ -34,4 +36,3 @@ export const createRealtimeSocket = (token?: string): RealtimeSocket => {
     transports: ["websocket", "polling"]
   });
 };
-

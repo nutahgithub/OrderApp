@@ -58,7 +58,10 @@ export const AdminOrdersPage = () => {
   const [selectedOrderId, setSelectedOrderId] = useState("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [actionErrorTitle, setActionErrorTitle] = useState<MessageKey>(MessageKey.OrdersUnableToUpdateStatus);
   const [updatingStatus, setUpdatingStatus] = useState<UpdateOrderStatusRequest["status"] | null>(null);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [pendingPaymentOrder, setPendingPaymentOrder] = useState<OrderDetail | null>(null);
   const [realtimeState, setRealtimeState] = useState<RealtimeState>("idle");
 
   const branches = branchesState.status === "success" ? branchesState.branches : [];
@@ -89,6 +92,10 @@ export const AdminOrdersPage = () => {
     };
 
     return labelByStatus[status];
+  };
+
+  const getOrderActionButtonClass = (status: UpdateOrderStatusRequest["status"]): string => {
+    return `button--inline order-action-button order-action-button--${status.toLowerCase()}`;
   };
 
   const shouldShowOrder = useCallback(
@@ -273,6 +280,22 @@ export const AdminOrdersPage = () => {
       });
     });
 
+    socket.on(RealtimeEvent.PaymentCompleted, (payload) => {
+      if (shouldShowOrder(payload.order)) {
+        upsertOrder(payload.order);
+      } else {
+        removeOrder(payload.order.id);
+      }
+
+      setOrderDetailState((currentState) => {
+        if (currentState.status === "success" && currentState.order.id === payload.order.id) {
+          return { status: "success", order: payload.order };
+        }
+
+        return currentState;
+      });
+    });
+
     socket.connect();
 
     return () => {
@@ -289,6 +312,7 @@ export const AdminOrdersPage = () => {
 
     setSuccessMessage(null);
     setUpdateError(null);
+    setActionErrorTitle(MessageKey.OrdersUnableToUpdateStatus);
     setUpdatingStatus(status);
 
     try {
@@ -301,6 +325,38 @@ export const AdminOrdersPage = () => {
       setUpdateError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
     } finally {
       setUpdatingStatus(null);
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!token) {
+      logout();
+      return;
+    }
+
+    if (!pendingPaymentOrder) {
+      return;
+    }
+
+    setSuccessMessage(null);
+    setUpdateError(null);
+    setActionErrorTitle(MessageKey.OrdersUnableToConfirmPayment);
+    setConfirmingPayment(true);
+
+    try {
+      const response = await apiClient.confirmPayment(token, pendingPaymentOrder.id, {
+        amount: pendingPaymentOrder.total,
+        method: "CASH"
+      });
+      setOrderDetailState({ status: "success", order: response.order });
+      await loadOrders(selectedBranchId, selectedStatus);
+      setSelectedOrderId(response.order.id);
+      setPendingPaymentOrder(null);
+      setSuccessMessage(t(MessageKey.OrdersPaymentCompleted));
+    } catch (error: unknown) {
+      setUpdateError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
+    } finally {
+      setConfirmingPayment(false);
     }
   };
 
@@ -465,12 +521,45 @@ export const AdminOrdersPage = () => {
                   <strong>{formatCurrency(orderDetailState.order.total)}</strong>
                 </div>
 
+                {orderDetailState.order.status !== "PAID" && orderDetailState.order.status !== "CANCELLED" ? (
+                  <div className="payment-action-panel">
+                    <div>
+                      <span>{t(MessageKey.NavPayments)}</span>
+                      <strong>{t(MessageKey.OrdersPaymentMethodCash)}</strong>
+                    </div>
+                    <Button
+                      type="button"
+                      className="button--inline payment-action-button"
+                      disabled={confirmingPayment || updatingStatus !== null}
+                      onClick={() => {
+                        setSuccessMessage(null);
+                        setUpdateError(null);
+                        setPendingPaymentOrder(orderDetailState.order);
+                      }}
+                    >
+                      {confirmingPayment ? t(MessageKey.OrdersConfirmingPayment) : t(MessageKey.OrdersConfirmPayment)}
+                    </Button>
+                  </div>
+                ) : null}
+
+                {orderDetailState.order.status === "PAID" ? (
+                  <StateMessage title={t(MessageKey.OrdersPaymentUnavailablePaid)} tone="success" />
+                ) : null}
+                {orderDetailState.order.status === "CANCELLED" ? (
+                  <StateMessage title={t(MessageKey.OrdersPaymentUnavailableCancelled)} />
+                ) : null}
+
                 <div className="order-actions">
                   {operationStatusOptions.map((status) => (
                     <Button
                       type="button"
-                      className="button--secondary button--inline"
-                      disabled={updatingStatus !== null || orderDetailState.order.status === status}
+                      className={getOrderActionButtonClass(status)}
+                      disabled={
+                        confirmingPayment ||
+                        updatingStatus !== null ||
+                        orderDetailState.order.status === status ||
+                        orderDetailState.order.status === "PAID"
+                      }
                       key={status}
                       onClick={() => void handleStatusUpdate(status)}
                     >
@@ -480,13 +569,88 @@ export const AdminOrdersPage = () => {
                 </div>
                 {successMessage ? <StateMessage title={successMessage} tone="success" /> : null}
                 {updateError ? (
-                  <StateMessage title={t(MessageKey.OrdersUnableToUpdateStatus)} description={updateError} tone="error" />
+                  <StateMessage title={t(actionErrorTitle)} description={updateError} tone="error" />
                 ) : null}
               </>
             ) : null}
           </section>
         </section>
       ) : null}
+
+      {pendingPaymentOrder ? (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={() => {
+            if (!confirmingPayment) {
+              setPendingPaymentOrder(null);
+            }
+          }}
+        >
+          <section
+            aria-labelledby="payment-confirm-title"
+            aria-modal="true"
+            className="modal-panel payment-confirm-modal"
+            role="dialog"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">{t(MessageKey.NavPayments)}</p>
+                <h2 id="payment-confirm-title">{t(MessageKey.OrdersPaymentModalTitle)}</h2>
+              </div>
+              <span className={`status-pill status-pill--order-${pendingPaymentOrder.status.toLowerCase()}`}>
+                {getOrderStatusLabel(pendingPaymentOrder.status)}
+              </span>
+            </div>
+
+            <p className="modal-description">
+              {t(MessageKey.OrdersPaymentModalDescription, {
+                tableName: pendingPaymentOrder.tableName
+              })}
+            </p>
+
+            <div className="payment-summary">
+              <div>
+                <span>{t(MessageKey.Branch)}</span>
+                <strong>{pendingPaymentOrder.branchName}</strong>
+              </div>
+              <div>
+                <span>{t(MessageKey.OrdersPaymentMethod)}</span>
+                <strong>{t(MessageKey.OrdersPaymentMethodCash)}</strong>
+              </div>
+              <div>
+                <span>{t(MessageKey.OrdersTotalAmount)}</span>
+                <strong>{formatCurrency(pendingPaymentOrder.total)}</strong>
+              </div>
+            </div>
+
+            {updateError ? (
+              <StateMessage title={t(actionErrorTitle)} description={updateError} tone="error" />
+            ) : null}
+
+            <div className="modal-actions">
+              <Button
+                type="button"
+                className="button--secondary button--inline"
+                disabled={confirmingPayment}
+                onClick={() => setPendingPaymentOrder(null)}
+              >
+                {t(MessageKey.Cancel)}
+              </Button>
+              <Button
+                type="button"
+                className="button--inline"
+                disabled={confirmingPayment}
+                onClick={() => void handleConfirmPayment()}
+              >
+                {confirmingPayment ? t(MessageKey.OrdersConfirmingPayment) : t(MessageKey.OrdersConfirmPayment)}
+              </Button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
     </section>
   );
 };

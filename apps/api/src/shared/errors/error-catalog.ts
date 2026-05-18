@@ -9,7 +9,10 @@ export const ErrorCode = {
   MenuNotFound: "MENU_NOT_FOUND",
   MissingAuthContext: "MISSING_AUTH_CONTEXT",
   MissingToken: "MISSING_TOKEN",
+  OrderAlreadyPaid: "ORDER_ALREADY_PAID",
+  OrderCannotBePaid: "ORDER_CANNOT_BE_PAID",
   OrderNotFound: "ORDER_NOT_FOUND",
+  PaymentAmountMismatch: "PAYMENT_AMOUNT_MISMATCH",
   RouteNotFound: "ROUTE_NOT_FOUND",
   TableNotFound: "TABLE_NOT_FOUND",
   TokenExpired: "TOKEN_EXPIRED",
@@ -75,10 +78,25 @@ export const errorCatalog = {
     message: "Missing bearer token",
     statusCode: 401
   },
+  [ErrorCode.OrderAlreadyPaid]: {
+    code: ErrorCode.OrderAlreadyPaid,
+    message: "Order is already paid",
+    statusCode: 409
+  },
+  [ErrorCode.OrderCannotBePaid]: {
+    code: ErrorCode.OrderCannotBePaid,
+    message: "Cancelled order cannot be paid",
+    statusCode: 409
+  },
   [ErrorCode.OrderNotFound]: {
     code: ErrorCode.OrderNotFound,
     message: "Order not found",
     statusCode: 404
+  },
+  [ErrorCode.PaymentAmountMismatch]: {
+    code: ErrorCode.PaymentAmountMismatch,
+    message: "Payment amount must match order total",
+    statusCode: 400
   },
   [ErrorCode.RouteNotFound]: {
     code: ErrorCode.RouteNotFound,

@@ -14,6 +14,7 @@ import type {
   CustomerJoinTablePayload,
   OrderCreatedPayload,
   OrderStatusUpdatedPayload,
+  PaymentCompletedPayload,
   RealtimeServer
 } from "./events.js";
 import { branchRoom, tableRoom, tenantRoom } from "./rooms.js";
@@ -117,3 +118,12 @@ export const emitOrderStatusUpdated = (payload: OrderStatusUpdatedPayload): void
     .emit(RealtimeEvent.OrderStatusUpdated, payload);
 };
 
+export const emitPaymentCompleted = (payload: PaymentCompletedPayload): void => {
+  if (!io) {
+    return;
+  }
+
+  io.to(branchRoom(payload.order.tenantId, payload.order.branchId))
+    .to(tableRoom(payload.order.tenantId, payload.order.branchId, payload.order.tableId))
+    .emit(RealtimeEvent.PaymentCompleted, payload);
+};

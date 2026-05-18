@@ -32,7 +32,7 @@ const calculateLineTotal = (item: Pick<OrderItem, "quantity" | "unitPrice">): st
   return item.unitPrice.mul(new Prisma.Decimal(item.quantity)).toFixed(2);
 };
 
-const toOrderDto = (order: OrderRecord): OrderDto => {
+export const toOrderDto = (order: OrderRecord): OrderDto => {
   return {
     id: order.id,
     tenantId: order.tenantId,
@@ -60,7 +60,7 @@ const toOrderItemDto = (item: OrderRecord["items"][number]): OrderItemDto => {
   };
 };
 
-const toOrderDetailDto = (order: OrderRecord): OrderDetailDto => {
+export const toOrderDetailDto = (order: OrderRecord): OrderDetailDto => {
   return {
     ...toOrderDto(order),
     items: order.items.map(toOrderItemDto)

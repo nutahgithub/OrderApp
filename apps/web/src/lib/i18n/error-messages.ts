@@ -11,7 +11,10 @@ const errorCodeToMessageKey: Record<string, MessageKey> = {
   MENU_NOT_FOUND: MessageKey.ResourceNotFound,
   MISSING_AUTH_CONTEXT: MessageKey.AuthSessionExpired,
   MISSING_TOKEN: MessageKey.AuthSessionExpired,
+  ORDER_ALREADY_PAID: MessageKey.OrdersPaymentUnavailablePaid,
+  ORDER_CANNOT_BE_PAID: MessageKey.OrdersPaymentUnavailableCancelled,
   ORDER_NOT_FOUND: MessageKey.ResourceNotFound,
+  PAYMENT_AMOUNT_MISMATCH: MessageKey.OrdersPaymentAmountMismatch,
   TABLE_NOT_FOUND: MessageKey.ResourceNotFound,
   TOKEN_EXPIRED: MessageKey.AuthSessionExpired,
   VALIDATION_ERROR: MessageKey.ValidationFailed

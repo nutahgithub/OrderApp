@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  confirmPaymentController,
   createQrOrderController,
   getOrderController,
   getQrOrderController,
@@ -15,6 +16,7 @@ orderRouter.use(requireAdminAuth);
 orderRouter.get("/", asyncHandler(listOrdersController));
 orderRouter.get("/:orderId", asyncHandler(getOrderController));
 orderRouter.patch("/:orderId/status", asyncHandler(updateOrderStatusController));
+orderRouter.post("/:orderId/payment", asyncHandler(confirmPaymentController));
 
 export const publicOrderRouter = Router();
 

@@ -460,8 +460,211 @@ a:focus-visible {
   font-weight: 800;
 }
 
+.payment-action-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #b7d8c9;
+  border-radius: 8px;
+  background: #f1fbf5;
+}
+
+.payment-action-panel div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.payment-action-panel span {
+  color: #4d6b60;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.payment-action-panel strong {
+  color: #173d34;
+  overflow-wrap: anywhere;
+}
+
+.payment-action-button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding-inline: 18px;
+  color: #ffffff;
+  background: #0f7a5a;
+}
+
+.payment-action-button:hover:not(:disabled) {
+  background: #0c674c;
+}
+
+.toast-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 30;
+  display: grid;
+  gap: 12px;
+  width: min(420px, calc(100vw - 40px));
+}
+
+.toast {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  overflow: hidden;
+  padding: 16px 16px 16px 20px;
+  border: 1px solid #7fc6a5;
+  border-radius: 8px;
+  color: #173d34;
+  background: #f6fff9;
+  box-shadow: 0 18px 42px rgb(15 23 42 / 22%);
+}
+
+.toast::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: #0f7a5a;
+  content: "";
+}
+
+.toast strong,
+.toast span {
+  overflow-wrap: anywhere;
+}
+
+.toast span {
+  color: #36564c;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
 .order-actions {
   grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+}
+
+.order-action-button {
+  min-height: 42px;
+  color: #1f3f3b;
+  background: #eef2ee;
+}
+
+.order-action-button--confirmed {
+  color: #ffffff;
+  background: #2563a8;
+}
+
+.order-action-button--preparing {
+  color: #3d2f08;
+  background: #f6c85f;
+}
+
+.order-action-button--ready {
+  color: #ffffff;
+  background: #188a5d;
+}
+
+.order-action-button--served {
+  color: #25313f;
+  background: #dce4ec;
+}
+
+.order-action-button--cancelled {
+  color: #ffffff;
+  background: #b9463e;
+}
+
+.order-action-button--confirmed:hover:not(:disabled),
+.order-action-button--ready:hover:not(:disabled),
+.order-action-button--cancelled:hover:not(:disabled) {
+  filter: brightness(0.94);
+}
+
+.order-action-button--preparing:hover:not(:disabled),
+.order-action-button--served:hover:not(:disabled) {
+  filter: brightness(0.97);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(22 49 47 / 38%);
+}
+
+.modal-panel {
+  display: grid;
+  gap: 16px;
+  width: min(460px, 100%);
+  padding: 20px;
+  border: 1px solid #d7dfd8;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 42px rgb(15 23 42 / 20%);
+}
+
+.modal-header,
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.modal-description {
+  margin: 0;
+  color: #4d5c57;
+  line-height: 1.5;
+}
+
+.payment-summary {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e3e7e0;
+  border-radius: 8px;
+  background: #fbfcfa;
+}
+
+.payment-summary div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.payment-summary span {
+  color: #68736f;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.payment-summary strong {
+  color: #1f3f3b;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.payment-summary div:last-child {
+  padding-top: 10px;
+  border-top: 1px solid #e7e4da;
+}
+
+.payment-summary div:last-child strong {
+  color: #1f6f61;
+  font-size: 20px;
 }
 
 .table-row {
@@ -861,6 +1064,7 @@ a:focus-visible {
   .table-row-main,
   .qr-url,
   .order-row,
+  .payment-action-panel,
   .menu-row,
   .menu-row-main,
   .menu-row-actions {
@@ -884,8 +1088,21 @@ a:focus-visible {
 
   .menu-row-actions .button,
   .branch-form-actions .button,
-  .order-actions .button {
+  .payment-action-panel .button,
+  .order-actions .button,
+  .modal-actions .button {
     width: 100%;
+  }
+
+  .modal-header,
+  .modal-actions,
+  .payment-summary div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .payment-summary strong {
+    text-align: left;
   }
 
   .customer-section-header,
@@ -900,5 +1117,11 @@ a:focus-visible {
   .cart-stepper {
     width: 100%;
     justify-content: start;
+  }
+
+  .toast-stack {
+    right: 14px;
+    bottom: 14px;
+    width: calc(100vw - 28px);
   }
 }

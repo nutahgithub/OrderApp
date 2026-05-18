@@ -7,6 +7,7 @@ import {
   qrOrderParamsSchema,
   updateOrderStatusSchema
 } from "../schemas/order.schema.js";
+import { confirmPaymentSchema } from "../schemas/payment.schema.js";
 import {
   createQrOrder,
   getQrOrderDetail,
@@ -14,6 +15,7 @@ import {
   listTenantOrders,
   updateTenantOrderStatus
 } from "../services/order.service.js";
+import { confirmTenantOrderPayment } from "../services/payment.service.js";
 import { AppError } from "../shared/errors/app-error.js";
 import { ErrorCode } from "../shared/errors/error-catalog.js";
 import { created, ok } from "../shared/http/api-response.js";
@@ -53,6 +55,14 @@ export const updateOrderStatusController = async (request: Request, response: Re
   ok(response, {
     order
   });
+};
+
+export const confirmPaymentController = async (request: Request, response: Response) => {
+  const params = parseParams(request, orderParamsSchema);
+  const input = parseBody(request, confirmPaymentSchema);
+  const paymentResult = await confirmTenantOrderPayment(getTenantId(request), params.orderId, input);
+
+  ok(response, paymentResult);
 };
 
 export const createQrOrderController = async (request: Request, response: Response) => {

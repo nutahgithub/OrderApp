@@ -3,6 +3,7 @@ import type {
   ApiSuccessBody,
   BranchFormRequest,
   BranchResponse,
+  ConfirmPaymentRequest,
   CurrentAdminResponse,
   CreateMenuRequest,
   CreateQrOrderRequest,
@@ -18,6 +19,7 @@ import type {
   MenuResponse,
   OrderResponse,
   OrderStatus,
+  PaymentResponse,
   QrEntryResponse,
   TableFormRequest,
   TableResponse,
@@ -152,6 +154,14 @@ export const apiClient = {
   updateOrderStatus: (token: string, orderId: string, body: UpdateOrderStatusRequest) =>
     request<OrderResponse>(`/admin/orders/${orderId}/status`, {
       method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(body)
+    }),
+  confirmPayment: (token: string, orderId: string, body: ConfirmPaymentRequest) =>
+    request<PaymentResponse>(`/admin/orders/${orderId}/payment`, {
+      method: "POST",
       headers: {
         Authorization: `Bearer ${token}`
       },
