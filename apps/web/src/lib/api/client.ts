@@ -8,6 +8,7 @@ import type {
   CreateMenuRequest,
   CreateQrOrderRequest,
   CreateTableRequest,
+  DashboardReportResponse,
   HealthResponse,
   ListBranchesResponse,
   ListMenusResponse,
@@ -167,6 +168,29 @@ export const apiClient = {
       },
       body: JSON.stringify(body)
     }),
+  getDashboardReport: (
+    token: string,
+    input: {
+      startDate: string;
+      endDate: string;
+      branchId?: string;
+    }
+  ) => {
+    const params = new URLSearchParams({
+      startDate: input.startDate,
+      endDate: input.endDate
+    });
+
+    if (input.branchId) {
+      params.set("branchId", input.branchId);
+    }
+
+    return request<DashboardReportResponse>(`/admin/reports/dashboard?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+  },
   listMenus: (token: string) =>
     request<ListMenusResponse>("/admin/menus", {
       headers: {

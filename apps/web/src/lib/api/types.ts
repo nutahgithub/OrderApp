@@ -173,6 +173,39 @@ export type PaymentResponse = {
   payment: Payment;
 };
 
+export type TopMenuItem = {
+  menuId: string;
+  menuName: string;
+  quantity: number;
+  revenue: string;
+};
+
+export type OrderStatusSummary = {
+  status: OrderStatus;
+  count: number;
+};
+
+export type ReportDashboard = {
+  filters: {
+    startDate: string;
+    endDate: string;
+    branchId: string | null;
+  };
+  revenue: {
+    total: string;
+  };
+  orders: {
+    total: number;
+    processing: number;
+  };
+  topMenuItems: TopMenuItem[];
+  orderStatusSummary: OrderStatusSummary[];
+};
+
+export type DashboardReportResponse = {
+  dashboard: ReportDashboard;
+};
+
 export type Menu = {
   id: string;
   tenantId: string;

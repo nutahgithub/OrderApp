@@ -134,6 +134,8 @@ model Order {
 
   @@index([tenantId])
   @@index([tenantId, branchId])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, branchId, createdAt])
   @@index([tenantId, tableId])
   @@map("orders")
 }
@@ -155,6 +157,8 @@ model Payment {
 
   @@index([tenantId])
   @@index([tenantId, branchId])
+  @@index([tenantId, paidAt])
+  @@index([tenantId, branchId, paidAt])
   @@map("payments")
 }
 
