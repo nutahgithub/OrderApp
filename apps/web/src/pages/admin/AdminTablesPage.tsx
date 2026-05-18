@@ -1,25 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { StateMessage } from "../../components/ui/StateMessage";
 import { useAuth } from "../../features/auth/AuthContext";
-import { apiClient } from "../../lib/api/client";
-import type { Branch, RestaurantTable, TableStatus } from "../../lib/api/types";
+import { useBranchesQuery } from "../../features/branches/hooks";
+import { useCreateTableMutation, useTablesQuery, useUpdateTableMutation } from "../../features/tables/hooks";
+import { tableSchema } from "../../features/tables/schemas";
+import type { TableFormValues } from "../../features/tables/schemas";
+import { getTableStatusLabelKey } from "../../features/shared/labels";
+import type { TableStatus } from "../../lib/api/types";
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
-
-type BranchesState =
-  | { status: "loading" }
-  | { status: "success"; branches: Branch[] }
-  | { status: "error"; message: string };
-
-type TablesState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "success"; tables: RestaurantTable[] }
-  | { status: "error"; message: string };
+import { getTableStatusClassName, statusPillClassName } from "../../lib/theme/status-colors";
+import { cn } from "../../lib/utils/cn";
 
 type EditingTable = {
   id: string;
@@ -32,85 +28,59 @@ const tableStatusOptions: TableStatus[] = ["AVAILABLE", "OCCUPIED", "DISABLED"];
 export const AdminTablesPage = () => {
   const { token, logout } = useAuth();
   const { locale, t } = useI18n();
-  const [branchesState, setBranchesState] = useState<BranchesState>({ status: "loading" });
-  const [tablesState, setTablesState] = useState<TablesState>({ status: "idle" });
   const [selectedBranchId, setSelectedBranchId] = useState("");
-  const [newTableName, setNewTableName] = useState("");
-  const [newTableStatus, setNewTableStatus] = useState<TableStatus>("AVAILABLE");
   const [editingTable, setEditingTable] = useState<EditingTable | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const branchesQuery = useBranchesQuery(token);
+  const tablesQuery = useTablesQuery(token, selectedBranchId);
+  const createTableMutation = useCreateTableMutation(token);
+  const updateTableMutation = useUpdateTableMutation(token, selectedBranchId);
+  const form = useForm<TableFormValues>({
+    resolver: zodResolver(tableSchema),
+    defaultValues: {
+      branchId: "",
+      name: "",
+      status: "AVAILABLE"
+    }
+  });
+  const isSubmitting = createTableMutation.isPending || updateTableMutation.isPending;
 
-  const branches = branchesState.status === "success" ? branchesState.branches : [];
-  const tables = tablesState.status === "success" ? tablesState.tables : [];
+  const branches = branchesQuery.data?.branches ?? [];
+  const tables = tablesQuery.data?.tables ?? [];
 
   const selectedBranch = useMemo(() => {
     return branches.find((branch) => branch.id === selectedBranchId) ?? null;
   }, [branches, selectedBranchId]);
 
-  const loadBranches = useCallback(async () => {
+  useEffect(() => {
     if (!token) {
-      setBranchesState({ status: "error", message: t(MessageKey.AuthSessionExpired) });
       logout();
-      return;
     }
-
-    setBranchesState({ status: "loading" });
-
-    try {
-      const response = await apiClient.listBranches(token);
-      setBranchesState({ status: "success", branches: response.branches });
-      setSelectedBranchId((currentBranchId) => currentBranchId || response.branches[0]?.id || "");
-    } catch (error: unknown) {
-      setBranchesState({ status: "error", message: getUserErrorMessage(error, MessageKey.RequestFailed, locale) });
-    }
-  }, [locale, logout, t, token]);
-
-  const loadTables = useCallback(
-    async (branchId: string) => {
-      if (!token) {
-        setTablesState({ status: "error", message: t(MessageKey.AuthSessionExpired) });
-        logout();
-        return;
-      }
-
-      if (!branchId) {
-        setTablesState({ status: "idle" });
-        return;
-      }
-
-      setTablesState({ status: "loading" });
-
-      try {
-        const response = await apiClient.listTables(token, branchId);
-        setTablesState({ status: "success", tables: response.tables });
-      } catch (error: unknown) {
-        setTablesState({ status: "error", message: getUserErrorMessage(error, MessageKey.RequestFailed, locale) });
-      }
-    },
-    [locale, logout, t, token]
-  );
+  }, [logout, token]);
 
   useEffect(() => {
-    void loadBranches();
-  }, [loadBranches]);
+    if (!selectedBranchId && branches[0]) {
+      setSelectedBranchId(branches[0].id);
+    }
+  }, [branches, selectedBranchId]);
 
   useEffect(() => {
-    void loadTables(selectedBranchId);
-  }, [loadTables, selectedBranchId]);
+    form.reset({
+      branchId: selectedBranchId,
+      name: editingTable?.name ?? "",
+      status: editingTable?.status ?? "AVAILABLE"
+    });
+  }, [editingTable, form, selectedBranchId]);
 
   const resetForm = () => {
     setEditingTable(null);
-    setNewTableName("");
-    setNewTableStatus("AVAILABLE");
+    form.reset({ branchId: selectedBranchId, name: "", status: "AVAILABLE" });
     setFormError(null);
   };
 
-  const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
+  const handleSubmit = async (values: TableFormValues) => {
     if (!token) {
       logout();
       return;
@@ -118,48 +88,26 @@ export const AdminTablesPage = () => {
 
     setFormError(null);
     setSuccessMessage(null);
-    setIsSubmitting(true);
 
     try {
-      await apiClient.createTable(token, {
-        branchId: selectedBranchId,
-        name: newTableName,
-        status: newTableStatus
-      });
-      resetForm();
-      await loadTables(selectedBranchId);
-      setSuccessMessage(t(MessageKey.TablesCreated));
+      if (editingTable) {
+        await updateTableMutation.mutateAsync({
+          tableId: editingTable.id,
+          body: { name: values.name, status: values.status }
+        });
+        resetForm();
+        setSuccessMessage(t(MessageKey.TablesUpdated));
+      } else {
+        await createTableMutation.mutateAsync({
+          branchId: values.branchId,
+          name: values.name,
+          status: values.status
+        });
+        resetForm();
+        setSuccessMessage(t(MessageKey.TablesCreated));
+      }
     } catch (error: unknown) {
       setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleUpdate = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!token || !editingTable) {
-      logout();
-      return;
-    }
-
-    setFormError(null);
-    setSuccessMessage(null);
-    setIsSubmitting(true);
-
-    try {
-      await apiClient.updateTable(token, editingTable.id, {
-        name: editingTable.name,
-        status: editingTable.status
-      });
-      resetForm();
-      await loadTables(selectedBranchId);
-      setSuccessMessage(t(MessageKey.TablesUpdated));
-    } catch (error: unknown) {
-      setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -172,33 +120,29 @@ export const AdminTablesPage = () => {
     }
   };
 
-  const formStatus = editingTable ? editingTable.status : newTableStatus;
   const getTableStatusLabel = (status: TableStatus): string => {
-    if (status === "AVAILABLE") {
-      return t(MessageKey.Available);
-    }
-
-    if (status === "OCCUPIED") {
-      return t(MessageKey.Occupied);
-    }
-
-    return t(MessageKey.Disabled);
+    return t(getTableStatusLabelKey(status));
   };
+  const branchesError = branchesQuery.error
+    ? getUserErrorMessage(branchesQuery.error, MessageKey.RequestFailed, locale)
+    : null;
+  const tablesError = tablesQuery.error ? getUserErrorMessage(tablesQuery.error, MessageKey.RequestFailed, locale) : null;
 
   return (
-    <section className="page-stack">
-      <header className="page-header">
+    <section className="grid gap-5">
+      <header className="flex items-center justify-between gap-4">
         <div>
-          <p className="eyebrow">{t(MessageKey.Setup)}</p>
-          <h1>{t(MessageKey.TablesTitle)}</h1>
-          <p className="page-subtitle">{t(MessageKey.TablesSubtitle)}</p>
+          <p className="mb-1.5 mt-0 text-xs font-bold uppercase text-muted-foreground">{t(MessageKey.Setup)}</p>
+          <h1 className="m-0 text-[28px] leading-tight">{t(MessageKey.TablesTitle)}</h1>
+          <p className="mb-0 mt-2 text-muted-foreground">{t(MessageKey.TablesSubtitle)}</p>
         </div>
       </header>
 
-      <section className="panel table-toolbar">
-        <label className="field">
+      <section className="grid grid-cols-[minmax(0,320px)_auto] items-end gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel max-[780px]:grid-cols-1 max-[780px]:items-stretch">
+        <label className="grid gap-1.5 text-sm font-semibold text-foreground">
           {t(MessageKey.Branch)}
           <select
+            className="min-h-[42px] w-full rounded-md border border-input bg-card px-2.5 py-2 text-foreground"
             value={selectedBranchId}
             onChange={(event) => {
               resetForm();
@@ -213,16 +157,16 @@ export const AdminTablesPage = () => {
             ))}
           </select>
         </label>
-        <Button type="button" className="button--secondary button--inline" onClick={() => void loadBranches()}>
+        <Button type="button" className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent" onClick={() => void branchesQuery.refetch()}>
           {t(MessageKey.Refresh)}
         </Button>
       </section>
 
-      {branchesState.status === "loading" ? <StateMessage title={t(MessageKey.TablesLoadingBranches)} /> : null}
-      {branchesState.status === "error" ? (
-        <StateMessage title={t(MessageKey.TablesUnableToLoadBranches)} description={branchesState.message} tone="error" />
+      {branchesQuery.isLoading ? <StateMessage title={t(MessageKey.TablesLoadingBranches)} /> : null}
+      {branchesError ? (
+        <StateMessage title={t(MessageKey.TablesUnableToLoadBranches)} description={branchesError} tone="error" />
       ) : null}
-      {branchesState.status === "success" && branches.length === 0 ? (
+      {branchesQuery.isSuccess && branches.length === 0 ? (
         <StateMessage
           title={t(MessageKey.TablesNoBranchesTitle)}
           description={t(MessageKey.TablesNoBranchesDescription)}
@@ -230,41 +174,24 @@ export const AdminTablesPage = () => {
       ) : null}
 
       {selectedBranch ? (
-        <section className="panel branch-form-panel">
-          <h2>
+        <section className="grid gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
+          <h2 className="m-0 text-base">
             {editingTable
               ? t(MessageKey.TablesEditTitle)
               : t(MessageKey.TablesCreateTitle, { branchName: selectedBranch.name })}
           </h2>
-          <p className="form-hint">{t(MessageKey.TablesHint)}</p>
-          <form className="table-form" onSubmit={editingTable ? handleUpdate : handleCreate}>
+          <p className="-mt-1 text-[13px] leading-normal text-muted-foreground">{t(MessageKey.TablesHint)}</p>
+          <form className="grid grid-cols-[minmax(0,1fr)_180px_auto] items-end gap-3 max-[780px]:grid-cols-1 max-[780px]:items-stretch" onSubmit={form.handleSubmit(handleSubmit)}>
             <Input
               label={t(MessageKey.TablesNameLabel)}
-              name="tableName"
               placeholder={t(MessageKey.TablesNamePlaceholder)}
-              value={editingTable ? editingTable.name : newTableName}
-              onChange={(event) => {
-                if (editingTable) {
-                  setEditingTable({ ...editingTable, name: event.target.value });
-                } else {
-                  setNewTableName(event.target.value);
-                }
-              }}
-              required
+              {...form.register("name")}
             />
-            <label className="field">
+            <label className="grid gap-1.5 text-sm font-semibold text-foreground">
               {t(MessageKey.Status)}
               <select
-                value={formStatus}
-                onChange={(event) => {
-                  const nextStatus = event.target.value as TableStatus;
-
-                  if (editingTable) {
-                    setEditingTable({ ...editingTable, status: nextStatus });
-                  } else {
-                    setNewTableStatus(nextStatus);
-                  }
-                }}
+                className="min-h-[42px] w-full rounded-md border border-input bg-card px-2.5 py-2 text-foreground"
+                {...form.register("status")}
               >
                 {tableStatusOptions.map((status) => (
                   <option key={status} value={status}>
@@ -273,9 +200,9 @@ export const AdminTablesPage = () => {
                 ))}
               </select>
             </label>
-            <div className="branch-form-actions">
+            <div className="flex gap-2 max-[780px]:justify-start">
               {editingTable ? (
-                <Button type="button" className="button--ghost" disabled={isSubmitting} onClick={resetForm}>
+                <Button type="button" className="bg-muted text-secondary-foreground" disabled={isSubmitting} onClick={resetForm}>
                   {t(MessageKey.Cancel)}
                 </Button>
               ) : null}
@@ -295,58 +222,58 @@ export const AdminTablesPage = () => {
         </section>
       ) : null}
 
-      <section className="panel">
-        <div className="section-header">
+      <section className="rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <div>
-            <h2>{t(MessageKey.TablesListTitle)}</h2>
+            <h2 className="m-0 text-base">{t(MessageKey.TablesListTitle)}</h2>
             {tables.length > 0 ? (
-              <p className="section-subtitle">{t(MessageKey.TablesTotal, { count: tables.length })}</p>
+              <p className="mt-1 text-[13px] leading-normal text-muted-foreground">{t(MessageKey.TablesTotal, { count: tables.length })}</p>
             ) : null}
           </div>
           <Button
             type="button"
-            className="button--secondary button--inline"
+            className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
             disabled={!selectedBranchId}
-            onClick={() => void loadTables(selectedBranchId)}
+            onClick={() => void tablesQuery.refetch()}
           >
             {t(MessageKey.Refresh)}
           </Button>
         </div>
 
         {copyMessage ? <StateMessage title={copyMessage} tone="success" /> : null}
-        {tablesState.status === "idle" ? <StateMessage title={t(MessageKey.TablesSelectBranch)} /> : null}
-        {tablesState.status === "loading" ? <StateMessage title={t(MessageKey.TablesLoading)} /> : null}
-        {tablesState.status === "error" ? (
-          <StateMessage title={t(MessageKey.TablesUnableToLoad)} description={tablesState.message} tone="error" />
+        {!selectedBranchId ? <StateMessage title={t(MessageKey.TablesSelectBranch)} /> : null}
+        {tablesQuery.isLoading ? <StateMessage title={t(MessageKey.TablesLoading)} /> : null}
+        {tablesError ? (
+          <StateMessage title={t(MessageKey.TablesUnableToLoad)} description={tablesError} tone="error" />
         ) : null}
-        {tablesState.status === "success" && tables.length === 0 ? (
+        {tablesQuery.isSuccess && tables.length === 0 ? (
           <StateMessage title={t(MessageKey.TablesEmptyTitle)} description={t(MessageKey.TablesEmptyDescription)} />
         ) : null}
         {tables.length > 0 ? (
-          <div className="table-list">
+          <div className="grid gap-2.5">
             {tables.map((table) => (
-              <article className="table-row" key={table.id}>
-                <div className="table-row-main">
+              <article className="grid gap-2.5 rounded-md border border-border bg-muted/45 p-3" key={table.id}>
+                <div className="flex min-w-0 items-center gap-2.5 max-[780px]:items-start">
                   <strong>{table.name}</strong>
-                  <span className={`status-pill status-pill--${table.status.toLowerCase()}`}>
+                  <span className={cn(statusPillClassName, getTableStatusClassName(table.status))}>
                     {getTableStatusLabel(table.status)}
                   </span>
-                  <span>
+                  <span className="break-words text-[13px] font-bold text-muted-foreground">
                     {t(MessageKey.Updated)} {new Date(table.updatedAt).toLocaleString(locale)}
                   </span>
                 </div>
-                <div className="qr-url">
-                  <span>{table.qrUrl}</span>
+                <div className="flex items-center justify-between gap-2.5 max-[780px]:flex-col max-[780px]:items-start">
+                  <span className="min-w-0 flex-1 break-words text-[13px] font-bold text-muted-foreground">{table.qrUrl}</span>
                   <Button
                     type="button"
-                    className="button--secondary button--inline"
+                    className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
                     onClick={() => void handleCopyQrUrl(table.qrUrl)}
                   >
                     {t(MessageKey.Copy)}
                   </Button>
                   <Button
                     type="button"
-                    className="button--secondary button--inline"
+                    className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
                     onClick={() => {
                       setFormError(null);
                       setSuccessMessage(null);

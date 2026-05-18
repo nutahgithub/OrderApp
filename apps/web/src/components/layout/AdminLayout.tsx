@@ -6,8 +6,10 @@ import type { Order } from "../../lib/api/types";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
 import { createRealtimeSocket, RealtimeEvent } from "../../lib/realtime/socket";
+import { cn } from "../../lib/utils/cn";
 import { Button } from "../ui/Button";
 import { LanguageSwitcher } from "../ui/LanguageSwitcher";
+import { ThemeSwitcher } from "../ui/ThemeSwitcher";
 
 type ToastMessage = {
   id: string;
@@ -26,8 +28,7 @@ const navItems = [
   { labelKey: MessageKey.NavBranches, to: "/admin/branches" },
   { labelKey: MessageKey.NavTables, to: "/admin/tables" },
   { labelKey: MessageKey.NavMenus, to: "/admin/menus" },
-  { labelKey: MessageKey.NavOrders, to: "/admin/orders" },
-  { labelKey: MessageKey.NavPayments, to: "/admin/payments" }
+  { labelKey: MessageKey.NavOrders, to: "/admin/orders" }
 ];
 
 const formatCurrency = (price: string): string => {
@@ -223,43 +224,60 @@ export const AdminLayout = () => {
   };
 
   return (
-    <div className="admin-shell">
-      <aside className="admin-sidebar">
+    <div className="grid min-h-screen grid-cols-[248px_minmax(0,1fr)] max-[780px]:grid-cols-1">
+      <aside className="flex flex-col gap-6 bg-[hsl(var(--sidebar))] p-6 text-[hsl(var(--sidebar-foreground))] max-[780px]:sticky max-[780px]:top-0 max-[780px]:z-10 max-[780px]:p-4">
         <div>
-          <div className="brand">Smart Restaurant OS</div>
+          <div className="text-lg font-bold">Smart Restaurant OS</div>
           {admin ? (
-            <div className="admin-profile">
+            <div className="mt-3 grid gap-0.5 text-[13px] text-[hsl(var(--sidebar-foreground)/0.86)]">
               <strong>{admin.name}</strong>
-              <span>{admin.tenant.name}</span>
+              <span className="text-[hsl(var(--sidebar-foreground)/0.68)]">{admin.tenant.name}</span>
             </div>
           ) : null}
         </div>
-        <nav className="admin-nav" aria-label="Admin navigation">
+        <nav className="grid gap-1.5 max-[780px]:grid-cols-3" aria-label="Admin navigation">
           {navItems.map((item) => (
-            <NavLink key={item.to} to={item.to}>
+            <NavLink
+              className={({ isActive }) =>
+                cn(
+                  "rounded-md px-3 py-2.5 text-[hsl(var(--sidebar-foreground)/0.86)] no-underline hover:bg-[hsl(var(--sidebar-foreground)/0.12)] hover:text-white max-[780px]:text-center",
+                  isActive && "bg-[hsl(var(--sidebar-foreground)/0.12)] text-white"
+                )
+              }
+              key={item.to}
+              to={item.to}
+            >
               {t(item.labelKey)}
             </NavLink>
           ))}
         </nav>
         <LanguageSwitcher />
+        <ThemeSwitcher />
         {!soundReady ? (
-          <Button type="button" className="button--ghost" onClick={handleEnableSound}>
+          <Button type="button" className="bg-muted text-secondary-foreground" onClick={handleEnableSound}>
             {t(MessageKey.NotificationsEnableSound)}
           </Button>
         ) : null}
-        <Button type="button" className="button--secondary" onClick={handleLogout}>
+        <Button type="button" className="mt-auto bg-secondary text-secondary-foreground hover:bg-accent" onClick={handleLogout}>
           {t(MessageKey.AuthLogout)}
         </Button>
       </aside>
-      <main className="admin-main">
+      <main className="p-7 max-[780px]:p-[18px]">
         <Outlet />
       </main>
       {toasts.length > 0 ? (
-        <div className="toast-stack" aria-live="polite" aria-atomic="false">
+        <div
+          className="fixed bottom-5 right-5 z-30 grid w-[min(420px,calc(100vw-40px))] gap-3 max-[780px]:bottom-3.5 max-[780px]:right-3.5 max-[780px]:w-[calc(100vw-28px)]"
+          aria-live="polite"
+          aria-atomic="false"
+        >
           {toasts.map((toast) => (
-            <div className="toast toast--order" key={toast.id}>
+            <div
+              className="relative grid gap-1.5 overflow-hidden rounded-md border border-success/60 bg-success/10 py-4 pl-5 pr-4 text-primary shadow-floating before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-primary before:content-['']"
+              key={toast.id}
+            >
               <strong>{toast.title}</strong>
-              <span>{toast.description}</span>
+              <span className="break-words text-sm leading-normal text-foreground">{toast.description}</span>
             </div>
           ))}
         </div>

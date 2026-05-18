@@ -7,7 +7,7 @@ export const NotFoundPage = () => {
   const { t } = useI18n();
 
   return (
-    <main className="center-page">
+    <main className="grid min-h-screen place-items-center p-6">
       <StateMessage title={t(MessageKey.NotFoundTitle)} description={t(MessageKey.NotFoundDescription)} />
       <Link to="/admin/dashboard">{t(MessageKey.NotFoundGoDashboard)}</Link>
     </main>

@@ -1,11 +1,14 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
-import type { FormEvent } from "react";
+import { useForm } from "react-hook-form";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { LanguageSwitcher } from "../../components/ui/LanguageSwitcher";
 import { StateMessage } from "../../components/ui/StateMessage";
 import { useAuth } from "../../features/auth/AuthContext";
+import { loginSchema } from "../../features/auth/schemas";
+import type { LoginFormValues } from "../../features/auth/schemas";
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
@@ -15,10 +18,15 @@ export const AdminLoginPage = () => {
   const { locale, t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
-  const [email, setEmail] = useState("admin@example.com");
-  const [password, setPassword] = useState("admin123456");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "admin@example.com",
+      password: "admin123456"
+    }
+  });
   const from =
     typeof location.state === "object" && location.state && "from" in location.state
       ? String(location.state.from)
@@ -28,16 +36,12 @@ export const AdminLoginPage = () => {
     return <Navigate to="/admin/dashboard" replace />;
   }
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSubmit = async (values: LoginFormValues) => {
     setError(null);
     setIsSubmitting(true);
 
     try {
-      await login({
-        email,
-        password
-      });
+      await login(values);
       navigate(from, { replace: true });
     } catch (loginError: unknown) {
       setError(getUserErrorMessage(loginError, MessageKey.RequestFailed, locale));
@@ -47,32 +51,28 @@ export const AdminLoginPage = () => {
   };
 
   return (
-    <main className="login-page">
-      <section className="login-panel">
-        <div className="login-panel-top">
-          <p className="eyebrow">{t(MessageKey.Admin)}</p>
+    <main className="grid min-h-screen place-items-center p-6">
+      <section className="w-[min(420px,100%)] rounded-md border border-border bg-card p-6 text-card-foreground shadow-panel">
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <p className="mb-1.5 mt-0 text-xs font-bold uppercase text-muted-foreground">{t(MessageKey.Admin)}</p>
           <LanguageSwitcher />
         </div>
-        <h1>{t(MessageKey.AuthSignInTitle)}</h1>
-        <form className="form-stack" onSubmit={handleSubmit}>
+        <h1 className="m-0 text-[28px] leading-tight">{t(MessageKey.AuthSignInTitle)}</h1>
+        <form className="mt-5 grid gap-3.5" onSubmit={form.handleSubmit(handleSubmit)}>
           <Input
             label={t(MessageKey.Email)}
-            name="email"
             type="email"
             placeholder="admin@example.com"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            required
+            {...form.register("email")}
           />
+          {form.formState.errors.email ? <StateMessage title={t(MessageKey.ValidationFailed)} tone="error" /> : null}
           <Input
             label={t(MessageKey.Password)}
-            name="password"
             type="password"
             placeholder={t(MessageKey.Password)}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
+            {...form.register("password")}
           />
+          {form.formState.errors.password ? <StateMessage title={t(MessageKey.ValidationFailed)} tone="error" /> : null}
           {error ? <StateMessage title={t(MessageKey.AuthLoginFailedTitle)} description={error} tone="error" /> : null}
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? t(MessageKey.AuthSigningIn) : t(MessageKey.Continue)}

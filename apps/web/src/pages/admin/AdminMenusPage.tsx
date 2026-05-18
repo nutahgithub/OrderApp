@@ -1,19 +1,22 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { StateMessage } from "../../components/ui/StateMessage";
 import { useAuth } from "../../features/auth/AuthContext";
-import { apiClient } from "../../lib/api/client";
+import {
+  useCreateMenuMutation,
+  useMenusQuery,
+  useUpdateMenuMutation,
+  useUploadMenuImageMutation
+} from "../../features/menus/hooks";
+import { menuSchema } from "../../features/menus/schemas";
 import type { Menu } from "../../lib/api/types";
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
-
-type MenusState =
-  | { status: "loading" }
-  | { status: "success"; menus: Menu[] }
-  | { status: "error"; message: string };
+import { statusPillClassName } from "../../lib/theme/status-colors";
+import { cn } from "../../lib/utils/cn";
 
 type EditingMenu = {
   id: string;
@@ -24,22 +27,7 @@ type EditingMenu = {
   isActive: boolean;
 };
 
-const pricePattern = /^\d+(\.\d{1,2})?$/;
 const maxCompressedImageBytes = 1_000_000;
-
-const validatePrice = (price: string, translate: (key: MessageKey) => string): string | null => {
-  const trimmedPrice = price.trim();
-
-  if (!pricePattern.test(trimmedPrice)) {
-    return translate(MessageKey.MenusPriceInvalidFormat);
-  }
-
-  if (Number(trimmedPrice) <= 0) {
-    return translate(MessageKey.MenusPriceGreaterThanZero);
-  }
-
-  return null;
-};
 
 const formatCurrency = (price: string): string => {
   return new Intl.NumberFormat("vi-VN", {
@@ -150,7 +138,10 @@ const compressImageForUpload = async (
 export const AdminMenusPage = () => {
   const { token, logout } = useAuth();
   const { locale, t } = useI18n();
-  const [menusState, setMenusState] = useState<MenusState>({ status: "loading" });
+  const menusQuery = useMenusQuery(token);
+  const createMenuMutation = useCreateMenuMutation(token);
+  const updateMenuMutation = useUpdateMenuMutation(token);
+  const uploadMenuImageMutation = useUploadMenuImageMutation(token);
   const [newMenuName, setNewMenuName] = useState("");
   const [newMenuPrice, setNewMenuPrice] = useState("");
   const [newMenuImageFile, setNewMenuImageFile] = useState<File | null>(null);
@@ -158,33 +149,18 @@ export const AdminMenusPage = () => {
   const [editingMenu, setEditingMenu] = useState<EditingMenu | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [busyMenuId, setBusyMenuId] = useState<string | null>(null);
 
-  const menus = menusState.status === "success" ? menusState.menus : [];
+  const menus = menusQuery.data?.menus ?? [];
   const visibleMenuCount = menus.filter((menu) => menu.isActive).length;
   const hiddenMenuCount = menus.length - visibleMenuCount;
-
-  const loadMenus = useCallback(async () => {
-    if (!token) {
-      setMenusState({ status: "error", message: t(MessageKey.AuthSessionExpired) });
-      logout();
-      return;
-    }
-
-    setMenusState({ status: "loading" });
-
-    try {
-      const response = await apiClient.listMenus(token);
-      setMenusState({ status: "success", menus: response.menus });
-    } catch (error: unknown) {
-      setMenusState({ status: "error", message: getUserErrorMessage(error, MessageKey.RequestFailed, locale) });
-    }
-  }, [locale, logout, t, token]);
+  const isSubmitting = createMenuMutation.isPending || updateMenuMutation.isPending || uploadMenuImageMutation.isPending;
 
   useEffect(() => {
-    void loadMenus();
-  }, [loadMenus]);
+    if (!token) {
+      logout();
+    }
+  }, [logout, token]);
 
   const resetForm = () => {
     setEditingMenu(null);
@@ -195,13 +171,13 @@ export const AdminMenusPage = () => {
     setFormError(null);
   };
 
-  const uploadSelectedImage = async (authToken: string, imageFile: File | null): Promise<string | null> => {
+  const uploadSelectedImage = async (_authToken: string, imageFile: File | null): Promise<string | null> => {
     if (!imageFile) {
       return null;
     }
 
     const uploadInput = await compressImageForUpload(imageFile, t);
-    const response = await apiClient.uploadMenuImage(authToken, uploadInput);
+    const response = await uploadMenuImageMutation.mutateAsync(uploadInput);
 
     return response.upload.url;
   };
@@ -214,33 +190,35 @@ export const AdminMenusPage = () => {
       return;
     }
 
-    const priceError = validatePrice(newMenuPrice, t);
+    const parsed = menuSchema.safeParse({
+      name: newMenuName,
+      price: newMenuPrice,
+      imageFile: newMenuImageFile,
+      imageUrl: null,
+      isActive: newMenuIsActive
+    });
 
-    if (priceError) {
-      setFormError(priceError);
+    if (!parsed.success) {
+      setFormError(t(parsed.error.issues[0]?.message as MessageKey));
       setSuccessMessage(null);
       return;
     }
 
     setFormError(null);
     setSuccessMessage(null);
-    setIsSubmitting(true);
 
     try {
       const uploadedImageUrl = await uploadSelectedImage(token, newMenuImageFile);
-      await apiClient.createMenu(token, {
-        name: newMenuName,
-        price: newMenuPrice.trim(),
+      await createMenuMutation.mutateAsync({
+        name: parsed.data.name,
+        price: parsed.data.price,
         imageUrl: uploadedImageUrl,
-        isActive: newMenuIsActive
+        isActive: parsed.data.isActive
       });
       resetForm();
-      await loadMenus();
       setSuccessMessage(t(MessageKey.MenusCreated));
     } catch (error: unknown) {
       setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -252,33 +230,32 @@ export const AdminMenusPage = () => {
       return;
     }
 
-    const priceError = validatePrice(editingMenu.price, t);
+    const parsed = menuSchema.safeParse(editingMenu);
 
-    if (priceError) {
-      setFormError(priceError);
+    if (!parsed.success) {
+      setFormError(t(parsed.error.issues[0]?.message as MessageKey));
       setSuccessMessage(null);
       return;
     }
 
     setFormError(null);
     setSuccessMessage(null);
-    setIsSubmitting(true);
 
     try {
       const uploadedImageUrl = editingMenu.imageFile ? await uploadSelectedImage(token, editingMenu.imageFile) : null;
-      await apiClient.updateMenu(token, editingMenu.id, {
-        name: editingMenu.name,
-        price: editingMenu.price.trim(),
+      await updateMenuMutation.mutateAsync({
+        menuId: editingMenu.id,
+        body: {
+        name: parsed.data.name,
+        price: parsed.data.price,
         imageUrl: uploadedImageUrl ?? (editingMenu.imageUrl || null),
-        isActive: editingMenu.isActive
+        isActive: parsed.data.isActive
+        }
       });
       resetForm();
-      await loadMenus();
       setSuccessMessage(t(MessageKey.MenusUpdated));
     } catch (error: unknown) {
       setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -293,13 +270,15 @@ export const AdminMenusPage = () => {
     setBusyMenuId(menu.id);
 
     try {
-      await apiClient.updateMenu(token, menu.id, {
+      await updateMenuMutation.mutateAsync({
+        menuId: menu.id,
+        body: {
         name: menu.name,
         price: menu.price,
         imageUrl: menu.imageUrl,
         isActive: !menu.isActive
+        }
       });
-      await loadMenus();
       setSuccessMessage(menu.isActive ? t(MessageKey.MenusHiddenFromQr) : t(MessageKey.MenusAvailableToQr));
     } catch (error: unknown) {
       setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
@@ -314,19 +293,19 @@ export const AdminMenusPage = () => {
   const formIsActive = editingMenu ? editingMenu.isActive : newMenuIsActive;
 
   return (
-    <section className="page-stack">
-      <header className="page-header">
+    <section className="grid gap-5">
+      <header className="flex items-center justify-between gap-4">
         <div>
-          <p className="eyebrow">{t(MessageKey.Setup)}</p>
-          <h1>{t(MessageKey.MenusTitle)}</h1>
-          <p className="page-subtitle">{t(MessageKey.MenusSubtitle)}</p>
+          <p className="mb-1.5 mt-0 text-xs font-bold uppercase text-muted-foreground">{t(MessageKey.Setup)}</p>
+          <h1 className="m-0 text-[28px] leading-tight">{t(MessageKey.MenusTitle)}</h1>
+          <p className="mb-0 mt-2 text-muted-foreground">{t(MessageKey.MenusSubtitle)}</p>
         </div>
       </header>
 
-      <section className="panel branch-form-panel">
-        <h2>{editingMenu ? t(MessageKey.MenusEditTitle) : t(MessageKey.MenusCreateTitle)}</h2>
-        <p className="form-hint">{t(MessageKey.MenusHint)}</p>
-        <form className="menu-form" onSubmit={editingMenu ? handleUpdate : handleCreate}>
+      <section className="grid gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
+        <h2 className="m-0 text-base">{editingMenu ? t(MessageKey.MenusEditTitle) : t(MessageKey.MenusCreateTitle)}</h2>
+        <p className="-mt-1 text-[13px] leading-normal text-muted-foreground">{t(MessageKey.MenusHint)}</p>
+        <form className="grid grid-cols-[minmax(0,1fr)_160px_minmax(220px,1fr)_150px_auto] items-end gap-3 max-[780px]:grid-cols-1 max-[780px]:items-stretch" onSubmit={editingMenu ? handleUpdate : handleCreate}>
           <Input
             label={t(MessageKey.MenusDishNameLabel)}
             name="menuName"
@@ -356,9 +335,10 @@ export const AdminMenusPage = () => {
             }}
             required
           />
-          <label className="field">
+          <label className="grid gap-1.5 text-sm font-semibold text-foreground">
             <span>{t(MessageKey.MenusImageLabel)}</span>
             <input
+              className="min-h-[42px] w-full rounded-md border border-input bg-card p-2 text-foreground"
               name="menuImage"
               type="file"
               accept="image/png,image/jpeg,image/webp"
@@ -372,14 +352,15 @@ export const AdminMenusPage = () => {
                 }
               }}
             />
-            <span className="field-hint">
+            <span className="text-xs font-medium leading-normal text-muted-foreground">
               {formImageFile
                 ? t(MessageKey.MenusImageSelected, { fileName: formImageFile.name })
                 : t(MessageKey.MenusImageHint)}
             </span>
           </label>
-          <label className="toggle-field">
+          <label className="flex min-h-[42px] items-center gap-2 text-sm font-bold text-foreground">
             <input
+              className="h-[18px] w-[18px]"
               type="checkbox"
               checked={formIsActive}
               onChange={(event) => {
@@ -392,9 +373,9 @@ export const AdminMenusPage = () => {
             />
             {t(MessageKey.MenusAvailableToCustomers)}
           </label>
-          <div className="branch-form-actions">
+          <div className="flex gap-2 max-[780px]:justify-start">
             {editingMenu ? (
-              <Button type="button" className="button--ghost" disabled={isSubmitting} onClick={resetForm}>
+              <Button type="button" className="bg-muted text-secondary-foreground" disabled={isSubmitting} onClick={resetForm}>
                 {t(MessageKey.Cancel)}
               </Button>
             ) : null}
@@ -415,46 +396,54 @@ export const AdminMenusPage = () => {
         ) : null}
       </section>
 
-      <section className="panel">
-        <div className="section-header">
+      <section className="rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <div>
-            <h2>{t(MessageKey.MenusListTitle)}</h2>
+            <h2 className="m-0 text-base">{t(MessageKey.MenusListTitle)}</h2>
             {menus.length > 0 ? (
-              <p className="section-subtitle">
+              <p className="mt-1 text-[13px] leading-normal text-muted-foreground">
                 {t(MessageKey.MenusSummary, { available: visibleMenuCount, hidden: hiddenMenuCount })}
               </p>
             ) : null}
           </div>
-          <Button type="button" className="button--secondary button--inline" onClick={() => void loadMenus()}>
+          <Button type="button" className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent" onClick={() => void menusQuery.refetch()}>
             {t(MessageKey.Refresh)}
           </Button>
         </div>
 
-        {menusState.status === "loading" ? <StateMessage title={t(MessageKey.MenusLoading)} /> : null}
-        {menusState.status === "error" ? (
-          <StateMessage title={t(MessageKey.MenusUnableToLoad)} description={menusState.message} tone="error" />
+        {menusQuery.isLoading ? <StateMessage title={t(MessageKey.MenusLoading)} /> : null}
+        {menusQuery.error ? (
+          <StateMessage
+            title={t(MessageKey.MenusUnableToLoad)}
+            description={getUserErrorMessage(menusQuery.error, MessageKey.RequestFailed, locale)}
+            tone="error"
+          />
         ) : null}
-        {menusState.status === "success" && menus.length === 0 ? (
+        {menusQuery.isSuccess && menus.length === 0 ? (
           <StateMessage title={t(MessageKey.MenusEmptyTitle)} description={t(MessageKey.MenusEmptyDescription)} />
         ) : null}
         {menus.length > 0 ? (
-          <div className="menu-list">
+          <div className="grid gap-2.5">
             {menus.map((menu) => (
-              <article className="menu-row" key={menu.id}>
-                <div className="menu-thumb" aria-label={menu.imageUrl ? menu.name : t(MessageKey.MenusNoImage)}>
-                  {menu.imageUrl ? <img src={menu.imageUrl} alt={menu.name} loading="lazy" /> : <span>{menu.name[0]}</span>}
+              <article className="flex items-center justify-between gap-3.5 rounded-md border border-border bg-muted/45 p-3 max-[780px]:flex-col max-[780px]:items-stretch" key={menu.id}>
+                <div className="grid h-[58px] w-[58px] flex-none place-items-center overflow-hidden rounded-md border border-border bg-muted font-extrabold text-muted-foreground max-[780px]:h-auto max-[780px]:w-full max-[780px]:aspect-video" aria-label={menu.imageUrl ? menu.name : t(MessageKey.MenusNoImage)}>
+                  {menu.imageUrl ? (
+                    <img className="h-full w-full object-cover" src={menu.imageUrl} alt={menu.name} loading="lazy" />
+                  ) : (
+                    <span>{menu.name[0]}</span>
+                  )}
                 </div>
-                <div className="menu-row-main">
+                <div className="flex min-w-0 flex-wrap items-center gap-2.5 max-[780px]:flex-col max-[780px]:items-start">
                   <strong>{menu.name}</strong>
-                  <span>{formatCurrency(menu.price)}</span>
-                  <span className={`status-pill ${menu.isActive ? "" : "status-pill--disabled"}`}>
+                  <span className="break-words text-[13px] font-bold text-muted-foreground">{formatCurrency(menu.price)}</span>
+                  <span className={cn(statusPillClassName, menu.isActive ? "bg-secondary text-secondary-foreground" : "bg-red-100 text-red-950")}>
                     {menu.isActive ? t(MessageKey.Available).toUpperCase() : t(MessageKey.Hidden).toUpperCase()}
                   </span>
                 </div>
-                <div className="menu-row-actions">
+                <div className="flex flex-none items-center gap-2.5 max-[780px]:w-full max-[780px]:flex-col max-[780px]:items-start">
                   <Button
                     type="button"
-                    className="button--secondary button--inline"
+                    className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent max-[780px]:w-full"
                     disabled={busyMenuId === menu.id}
                     onClick={() => void handleToggleActive(menu)}
                   >
@@ -466,7 +455,7 @@ export const AdminMenusPage = () => {
                   </Button>
                   <Button
                     type="button"
-                    className="button--secondary button--inline"
+                    className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent max-[780px]:w-full"
                     disabled={busyMenuId === menu.id}
                     onClick={() => {
                       setFormError(null);

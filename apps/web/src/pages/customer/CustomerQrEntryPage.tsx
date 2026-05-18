@@ -8,6 +8,12 @@ import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
 import { createRealtimeSocket, RealtimeEvent } from "../../lib/realtime/socket";
+import {
+  getOrderStatusClassName,
+  getRealtimeConnectionClassName,
+  statusPillClassName
+} from "../../lib/theme/status-colors";
+import { cn } from "../../lib/utils/cn";
 
 type QrRouteParams = {
   tenantId: string;
@@ -249,18 +255,18 @@ export const CustomerQrEntryPage = () => {
   };
 
   return (
-    <section className="customer-card">
-      <p className="eyebrow">{t(MessageKey.QrEyebrow)}</p>
-      <h1>{qrEntry.table.name}</h1>
-      <p className="customer-subtitle">{qrEntry.branch.name}</p>
-      <dl className="qr-context">
-        <div>
-          <dt>{t(MessageKey.QrBranch)}</dt>
-          <dd>{qrEntry.branch.name}</dd>
+    <section className="mx-auto w-[min(520px,100%)] rounded-md border border-border bg-card p-5 text-card-foreground shadow-panel">
+      <p className="mb-1.5 mt-0 text-xs font-bold uppercase text-muted-foreground">{t(MessageKey.QrEyebrow)}</p>
+      <h1 className="m-0 text-[28px] leading-tight">{qrEntry.table.name}</h1>
+      <p className="mt-1 text-[13px] leading-normal text-muted-foreground">{qrEntry.branch.name}</p>
+      <dl className="my-[18px] grid gap-2.5">
+        <div className="flex justify-between gap-3 border-b border-border py-3">
+          <dt className="font-bold text-muted-foreground">{t(MessageKey.QrBranch)}</dt>
+          <dd className="m-0 break-words">{qrEntry.branch.name}</dd>
         </div>
-        <div>
-          <dt>{t(MessageKey.QrTableStatus)}</dt>
-          <dd>
+        <div className="flex justify-between gap-3 border-b border-border py-3">
+          <dt className="font-bold text-muted-foreground">{t(MessageKey.QrTableStatus)}</dt>
+          <dd className="m-0 break-words">
             {qrEntry.table.status === "DISABLED" ? t(MessageKey.Unavailable) : t(MessageKey.ReadyToOrder)}
           </dd>
         </div>
@@ -284,35 +290,35 @@ export const CustomerQrEntryPage = () => {
       ) : null}
       {!isDisabled && menus.length > 0 ? (
         <>
-          <div className="customer-section-header">
-            <h2>{t(MessageKey.QrAvailableDishes)}</h2>
-            <span>{t(MessageKey.QrItems, { count: menus.length })}</span>
+          <div className="mt-5 flex items-center justify-between gap-3 max-[780px]:items-start">
+            <h2 className="m-0 text-base">{t(MessageKey.QrAvailableDishes)}</h2>
+            <span className="flex-none text-[13px] font-bold text-muted-foreground">{t(MessageKey.QrItems, { count: menus.length })}</span>
           </div>
-          <div className="customer-menu-list">
+          <div className="mt-[18px] grid gap-2.5">
             {menus.map((menu) => (
-              <article className="customer-menu-row" key={menu.id}>
-                <div className="customer-menu-thumb" aria-label={menu.imageUrl ? menu.name : t(MessageKey.MenusNoImage)}>
-                  {menu.imageUrl ? <img src={menu.imageUrl} alt={menu.name} loading="lazy" /> : <span>{menu.name[0]}</span>}
+              <article className="flex items-center justify-start gap-3.5 border-b border-border py-3 max-[780px]:items-start" key={menu.id}>
+                <div className="grid h-16 w-16 flex-none place-items-center overflow-hidden rounded-md border border-border bg-muted font-extrabold text-muted-foreground" aria-label={menu.imageUrl ? menu.name : t(MessageKey.MenusNoImage)}>
+                  {menu.imageUrl ? <img className="h-full w-full object-cover" src={menu.imageUrl} alt={menu.name} loading="lazy" /> : <span>{menu.name[0]}</span>}
                 </div>
-                <div>
+                <div className="grid min-w-0 gap-1">
                   <strong>{menu.name}</strong>
-                  <span>{t(MessageKey.QrAvailableNow)}</span>
+                  <span className="break-words text-[13px] text-muted-foreground">{t(MessageKey.QrAvailableNow)}</span>
                 </div>
-                <b>{formatCurrency(menu.price)}</b>
-                <div className="cart-stepper">
+                <b className="ml-auto flex-none text-primary max-[780px]:ml-0">{formatCurrency(menu.price)}</b>
+                <div className="inline-grid flex-none grid-cols-[32px_32px_32px] items-center justify-end gap-1 max-[780px]:w-full max-[780px]:justify-start">
                   <Button
                     type="button"
-                    className="button--secondary button--icon"
+                    className="min-h-8 w-8 bg-secondary p-0 text-secondary-foreground hover:bg-accent"
                     aria-label={t(MessageKey.QrDecreaseItem)}
                     onClick={() => updateCart(menu.id, -1)}
                     disabled={(cart[menu.id] ?? 0) === 0 || orderState.status === "submitting"}
                   >
                     -
                   </Button>
-                  <span>{cart[menu.id] ?? 0}</span>
+                  <span className="text-center font-extrabold text-secondary-foreground">{cart[menu.id] ?? 0}</span>
                   <Button
                     type="button"
-                    className="button--secondary button--icon"
+                    className="min-h-8 w-8 bg-secondary p-0 text-secondary-foreground hover:bg-accent"
                     aria-label={t(MessageKey.QrIncreaseItem)}
                     onClick={() => updateCart(menu.id, 1)}
                     disabled={orderState.status === "submitting"}
@@ -323,18 +329,18 @@ export const CustomerQrEntryPage = () => {
               </article>
             ))}
           </div>
-          <section className="customer-cart">
-            <div className="customer-section-header">
-              <h2>{t(MessageKey.QrCartTitle)}</h2>
-              <span>{t(MessageKey.QrItems, { count: cartCount })}</span>
+          <section className="mt-5 grid gap-3 border-t border-border pt-4">
+            <div className="mt-5 flex items-center justify-between gap-3 max-[780px]:items-start">
+              <h2 className="m-0 text-base">{t(MessageKey.QrCartTitle)}</h2>
+              <span className="flex-none text-[13px] font-bold text-muted-foreground">{t(MessageKey.QrItems, { count: cartCount })}</span>
             </div>
             {cartItems.length === 0 ? (
               <StateMessage title={t(MessageKey.QrCartEmpty)} />
             ) : (
               <>
-                <div className="order-total-row">
+                <div className="flex items-center justify-between gap-3 py-3 font-extrabold">
                   <span>{t(MessageKey.QrSubtotal)}</span>
-                  <strong>{formatCurrency(String(cartTotal))}</strong>
+                  <strong className="text-primary">{formatCurrency(String(cartTotal))}</strong>
                 </div>
                 <Button type="button" disabled={orderState.status === "submitting"} onClick={() => void submitOrder()}>
                   {orderState.status === "submitting" ? t(MessageKey.QrSubmittingOrder) : t(MessageKey.QrSubmitOrder)}
@@ -346,23 +352,23 @@ export const CustomerQrEntryPage = () => {
             ) : null}
           </section>
           {orderState.status === "success" ? (
-            <section className="customer-tracking">
-              <div className="customer-section-header">
-                <h2>{t(MessageKey.QrTrackingTitle)}</h2>
-                <span className={`connection-pill connection-pill--${realtimeState}`}>
+            <section className="mt-5 grid gap-3 border-t border-border pt-4">
+              <div className="mt-5 flex items-center justify-between gap-3 max-[780px]:items-start">
+                <h2 className="m-0 text-base">{t(MessageKey.QrTrackingTitle)}</h2>
+                <span className={cn("inline-flex min-h-[30px] items-center justify-center self-center rounded-full px-2.5 py-1 text-xs font-extrabold", getRealtimeConnectionClassName(realtimeState))}>
                   {realtimeState === "connected" ? t(MessageKey.RealtimeConnected) : null}
                   {realtimeState === "connecting" ? t(MessageKey.RealtimeConnecting) : null}
                   {realtimeState === "fallback" ? t(MessageKey.RealtimeFallback) : null}
                 </span>
               </div>
-              <span className={`status-pill status-pill--order-${orderState.order.status.toLowerCase()}`}>
+              <span className={cn(statusPillClassName, getOrderStatusClassName(orderState.order.status))}>
                 {getOrderStatusLabel(orderState.order.status)}
               </span>
-              <div className="order-total-row">
+              <div className="flex items-center justify-between gap-3 py-3 font-extrabold">
                 <span>{t(MessageKey.QrOrderTotal)}</span>
-                <strong>{formatCurrency(orderState.order.total)}</strong>
+                <strong className="text-primary">{formatCurrency(orderState.order.total)}</strong>
               </div>
-              <Button type="button" className="button--secondary" onClick={() => void refreshOrder(orderState.order.id)}>
+              <Button type="button" className="bg-secondary text-secondary-foreground hover:bg-accent" onClick={() => void refreshOrder(orderState.order.id)}>
                 {t(MessageKey.Refresh)}
               </Button>
             </section>

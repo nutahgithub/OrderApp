@@ -2,12 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/ui/Button";
 import { StateMessage } from "../../components/ui/StateMessage";
 import { useAuth } from "../../features/auth/AuthContext";
+import { useConfirmPaymentMutation, useUpdateOrderStatusMutation } from "../../features/orders/hooks";
 import { apiClient } from "../../lib/api/client";
 import type { Branch, Order, OrderDetail, OrderStatus, UpdateOrderStatusRequest } from "../../lib/api/types";
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
 import { createRealtimeSocket, RealtimeEvent } from "../../lib/realtime/socket";
+import {
+  getOrderStatusClassName,
+  getRealtimeConnectionClassName,
+  statusPillClassName
+} from "../../lib/theme/status-colors";
+import { cn } from "../../lib/utils/cn";
 
 type BranchesState =
   | { status: "loading" }
@@ -63,6 +70,8 @@ export const AdminOrdersPage = () => {
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [pendingPaymentOrder, setPendingPaymentOrder] = useState<OrderDetail | null>(null);
   const [realtimeState, setRealtimeState] = useState<RealtimeState>("idle");
+  const updateOrderStatusMutation = useUpdateOrderStatusMutation(token, selectedBranchId, selectedStatus);
+  const confirmPaymentMutation = useConfirmPaymentMutation(token, selectedBranchId, selectedStatus);
 
   const branches = branchesState.status === "success" ? branchesState.branches : [];
   const orders = ordersState.status === "success" ? ordersState.orders : [];
@@ -95,7 +104,15 @@ export const AdminOrdersPage = () => {
   };
 
   const getOrderActionButtonClass = (status: UpdateOrderStatusRequest["status"]): string => {
-    return `button--inline order-action-button order-action-button--${status.toLowerCase()}`;
+    const classByStatus: Record<UpdateOrderStatusRequest["status"], string> = {
+      CONFIRMED: "mt-0 min-h-[42px] bg-info text-white",
+      PREPARING: "mt-0 min-h-[42px] bg-warning text-yellow-950",
+      READY: "mt-0 min-h-[42px] bg-success text-white",
+      SERVED: "mt-0 min-h-[42px] bg-slate-200 text-slate-800",
+      CANCELLED: "mt-0 min-h-[42px] bg-destructive text-destructive-foreground"
+    };
+
+    return classByStatus[status];
   };
 
   const shouldShowOrder = useCallback(
@@ -316,9 +333,9 @@ export const AdminOrdersPage = () => {
     setUpdatingStatus(status);
 
     try {
-      const response = await apiClient.updateOrderStatus(token, selectedOrderId, { status });
+      const response = await updateOrderStatusMutation.mutateAsync({ orderId: selectedOrderId, status });
       setOrderDetailState({ status: "success", order: response.order });
-      await loadOrders(selectedBranchId, selectedStatus);
+      upsertOrder(response.order);
       setSelectedOrderId(response.order.id);
       setSuccessMessage(t(MessageKey.OrdersStatusUpdated));
     } catch (error: unknown) {
@@ -344,12 +361,12 @@ export const AdminOrdersPage = () => {
     setConfirmingPayment(true);
 
     try {
-      const response = await apiClient.confirmPayment(token, pendingPaymentOrder.id, {
-        amount: pendingPaymentOrder.total,
-        method: "CASH"
+      const response = await confirmPaymentMutation.mutateAsync({
+        orderId: pendingPaymentOrder.id,
+        amount: pendingPaymentOrder.total
       });
       setOrderDetailState({ status: "success", order: response.order });
-      await loadOrders(selectedBranchId, selectedStatus);
+      upsertOrder(response.order);
       setSelectedOrderId(response.order.id);
       setPendingPaymentOrder(null);
       setSuccessMessage(t(MessageKey.OrdersPaymentCompleted));
@@ -361,19 +378,20 @@ export const AdminOrdersPage = () => {
   };
 
   return (
-    <section className="page-stack">
-      <header className="page-header">
+    <section className="grid gap-5">
+      <header className="flex items-center justify-between gap-4">
         <div>
-          <p className="eyebrow">{t(MessageKey.OrdersEyebrow)}</p>
-          <h1>{t(MessageKey.OrdersTitle)}</h1>
-          <p className="page-subtitle">{t(MessageKey.OrdersSubtitle)}</p>
+          <p className="mb-1.5 mt-0 text-xs font-bold uppercase text-muted-foreground">{t(MessageKey.OrdersEyebrow)}</p>
+          <h1 className="m-0 text-[28px] leading-tight">{t(MessageKey.OrdersTitle)}</h1>
+          <p className="mb-0 mt-2 text-muted-foreground">{t(MessageKey.OrdersSubtitle)}</p>
         </div>
       </header>
 
-      <section className="panel order-toolbar">
-        <label className="field">
+      <section className="grid grid-cols-[minmax(0,320px)_minmax(0,220px)_auto_auto] items-end gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel max-[780px]:grid-cols-1 max-[780px]:items-stretch">
+        <label className="grid gap-1.5 text-sm font-semibold text-foreground">
           {t(MessageKey.Branch)}
           <select
+            className="min-h-[42px] w-full rounded-md border border-input bg-card px-2.5 py-2 text-foreground"
             value={selectedBranchId}
             onChange={(event) => {
               setSelectedBranchId(event.target.value);
@@ -390,9 +408,10 @@ export const AdminOrdersPage = () => {
             ))}
           </select>
         </label>
-        <label className="field">
+        <label className="grid gap-1.5 text-sm font-semibold text-foreground">
           {t(MessageKey.Status)}
           <select
+            className="min-h-[42px] w-full rounded-md border border-input bg-card px-2.5 py-2 text-foreground"
             value={selectedStatus}
             onChange={(event) => {
               setSelectedStatus(event.target.value as OrderStatus | "ALL");
@@ -410,13 +429,13 @@ export const AdminOrdersPage = () => {
         </label>
         <Button
           type="button"
-          className="button--secondary button--inline"
+          className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
           disabled={!selectedBranchId}
           onClick={() => void loadOrders(selectedBranchId, selectedStatus)}
         >
           {t(MessageKey.Refresh)}
         </Button>
-        <span className={`connection-pill connection-pill--${realtimeState}`}>
+        <span className={cn("inline-flex min-h-[30px] items-center justify-center self-center rounded-full px-2.5 py-1 text-xs font-extrabold", getRealtimeConnectionClassName(realtimeState))}>
           {realtimeState === "connected" ? t(MessageKey.RealtimeConnected) : null}
           {realtimeState === "connecting" ? t(MessageKey.RealtimeConnecting) : null}
           {realtimeState === "fallback" ? t(MessageKey.RealtimeFallback) : null}
@@ -435,13 +454,13 @@ export const AdminOrdersPage = () => {
       ) : null}
 
       {selectedBranch ? (
-        <section className="orders-workspace">
-          <section className="panel">
-            <div className="section-header">
+        <section className="grid grid-cols-[minmax(280px,0.85fr)_minmax(0,1.15fr)] items-start gap-4 max-[780px]:grid-cols-1">
+          <section className="rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
+            <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h2>{t(MessageKey.OrdersListTitle)}</h2>
+                <h2 className="m-0 text-base">{t(MessageKey.OrdersListTitle)}</h2>
                 {orders.length > 0 ? (
-                  <p className="section-subtitle">{t(MessageKey.OrdersTotal, { count: orders.length })}</p>
+                  <p className="mt-1 text-[13px] leading-normal text-muted-foreground">{t(MessageKey.OrdersTotal, { count: orders.length })}</p>
                 ) : null}
               </div>
             </div>
@@ -455,11 +474,14 @@ export const AdminOrdersPage = () => {
               <StateMessage title={t(MessageKey.OrdersEmptyTitle)} description={t(MessageKey.OrdersEmptyDescription)} />
             ) : null}
             {orders.length > 0 ? (
-              <div className="order-list">
+              <div className="grid gap-3">
                 {orders.map((order) => (
                   <button
                     type="button"
-                    className={`order-row${order.id === selectedOrderId ? " order-row--active" : ""}`}
+                    className={cn(
+                      "grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2.5 rounded-md border border-border bg-muted/45 p-3 text-left text-foreground hover:border-ring hover:bg-accent max-[780px]:grid-cols-1 max-[780px]:items-start",
+                      order.id === selectedOrderId && "border-ring bg-accent"
+                    )}
                     key={order.id}
                     onClick={() => {
                       setSelectedOrderId(order.id);
@@ -467,21 +489,21 @@ export const AdminOrdersPage = () => {
                       setUpdateError(null);
                     }}
                   >
-                    <span>
+                    <span className="grid min-w-0 gap-1">
                       <strong>{order.tableName}</strong>
-                      <small>{new Date(order.createdAt).toLocaleString(locale)}</small>
+                      <small className="break-words text-[13px] text-muted-foreground">{new Date(order.createdAt).toLocaleString(locale)}</small>
                     </span>
-                    <span className={`status-pill status-pill--order-${order.status.toLowerCase()}`}>
+                    <span className={cn(statusPillClassName, getOrderStatusClassName(order.status))}>
                       {getOrderStatusLabel(order.status)}
                     </span>
-                    <b>{formatCurrency(order.total)}</b>
+                    <b className="text-primary">{formatCurrency(order.total)}</b>
                   </button>
                 ))}
               </div>
             ) : null}
           </section>
 
-          <section className="panel order-detail-panel">
+          <section className="grid gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
             {orderDetailState.status === "idle" ? <StateMessage title={t(MessageKey.OrdersSelectOrder)} /> : null}
             {orderDetailState.status === "loading" ? <StateMessage title={t(MessageKey.OrdersLoadingDetail)} /> : null}
             {orderDetailState.status === "error" ? (
@@ -489,47 +511,47 @@ export const AdminOrdersPage = () => {
             ) : null}
             {orderDetailState.status === "success" ? (
               <>
-                <div className="section-header">
+                <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
-                    <h2>{t(MessageKey.OrdersDetailTitle, { tableName: orderDetailState.order.tableName })}</h2>
-                    <p className="section-subtitle">
+                    <h2 className="m-0 text-base">{t(MessageKey.OrdersDetailTitle, { tableName: orderDetailState.order.tableName })}</h2>
+                    <p className="mt-1 text-[13px] leading-normal text-muted-foreground">
                       {orderDetailState.order.branchName} &middot;{" "}
                       {new Date(orderDetailState.order.createdAt).toLocaleString(locale)}
                     </p>
                   </div>
-                  <span className={`status-pill status-pill--order-${orderDetailState.order.status.toLowerCase()}`}>
+                  <span className={cn(statusPillClassName, getOrderStatusClassName(orderDetailState.order.status))}>
                     {getOrderStatusLabel(orderDetailState.order.status)}
                   </span>
                 </div>
 
-                <div className="order-items">
+                <div className="grid gap-3">
                   {orderDetailState.order.items.map((item) => (
-                    <div className="order-item-row" key={item.id}>
-                      <div>
+                    <div className="flex items-center justify-between gap-3 border-b border-border py-3" key={item.id}>
+                      <div className="grid min-w-0 gap-1">
                         <strong>{item.menuName}</strong>
-                        <span>
+                        <span className="break-words text-[13px] text-muted-foreground">
                           {item.quantity} &times; {formatCurrency(item.unitPrice)}
                         </span>
                       </div>
-                      <b>{formatCurrency(item.lineTotal)}</b>
+                      <b className="text-primary">{formatCurrency(item.lineTotal)}</b>
                     </div>
                   ))}
                 </div>
 
-                <div className="order-total-row">
+                <div className="flex items-center justify-between gap-3 py-3 font-extrabold">
                   <span>{t(MessageKey.OrdersTotalAmount)}</span>
-                  <strong>{formatCurrency(orderDetailState.order.total)}</strong>
+                  <strong className="text-primary">{formatCurrency(orderDetailState.order.total)}</strong>
                 </div>
 
                 {orderDetailState.order.status !== "PAID" && orderDetailState.order.status !== "CANCELLED" ? (
-                  <div className="payment-action-panel">
-                    <div>
-                      <span>{t(MessageKey.NavPayments)}</span>
-                      <strong>{t(MessageKey.OrdersPaymentMethodCash)}</strong>
+                  <div className="flex items-center justify-between gap-3 rounded-md border border-success/50 bg-success/10 p-3 max-[780px]:flex-col max-[780px]:items-start">
+                    <div className="grid min-w-0 gap-1">
+                      <span className="text-xs font-extrabold uppercase text-muted-foreground">{t(MessageKey.NavPayments)}</span>
+                      <strong className="break-words text-primary">{t(MessageKey.OrdersPaymentMethodCash)}</strong>
                     </div>
                     <Button
                       type="button"
-                      className="button--inline payment-action-button"
+                      className="mt-0 min-h-11 flex-none bg-primary px-[18px] text-primary-foreground max-[780px]:w-full"
                       disabled={confirmingPayment || updatingStatus !== null}
                       onClick={() => {
                         setSuccessMessage(null);
@@ -549,7 +571,7 @@ export const AdminOrdersPage = () => {
                   <StateMessage title={t(MessageKey.OrdersPaymentUnavailableCancelled)} />
                 ) : null}
 
-                <div className="order-actions">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(118px,1fr))] gap-3">
                   {operationStatusOptions.map((status) => (
                     <Button
                       type="button"
@@ -579,7 +601,7 @@ export const AdminOrdersPage = () => {
 
       {pendingPaymentOrder ? (
         <div
-          className="modal-backdrop"
+          className="fixed inset-0 z-20 grid place-items-center bg-foreground/40 p-5"
           role="presentation"
           onMouseDown={() => {
             if (!confirmingPayment) {
@@ -590,38 +612,38 @@ export const AdminOrdersPage = () => {
           <section
             aria-labelledby="payment-confirm-title"
             aria-modal="true"
-            className="modal-panel payment-confirm-modal"
+            className="grid w-[min(460px,100%)] gap-4 rounded-md border border-border bg-card p-5 shadow-floating"
             role="dialog"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <div className="modal-header">
+            <div className="flex items-center justify-between gap-3 max-[780px]:flex-col max-[780px]:items-stretch">
               <div>
-                <p className="eyebrow">{t(MessageKey.NavPayments)}</p>
-                <h2 id="payment-confirm-title">{t(MessageKey.OrdersPaymentModalTitle)}</h2>
+                <p className="mb-1.5 mt-0 text-xs font-bold uppercase text-muted-foreground">{t(MessageKey.NavPayments)}</p>
+                <h2 className="m-0 text-lg" id="payment-confirm-title">{t(MessageKey.OrdersPaymentModalTitle)}</h2>
               </div>
-              <span className={`status-pill status-pill--order-${pendingPaymentOrder.status.toLowerCase()}`}>
+              <span className={cn(statusPillClassName, getOrderStatusClassName(pendingPaymentOrder.status))}>
                 {getOrderStatusLabel(pendingPaymentOrder.status)}
               </span>
             </div>
 
-            <p className="modal-description">
+            <p className="m-0 leading-normal text-muted-foreground">
               {t(MessageKey.OrdersPaymentModalDescription, {
                 tableName: pendingPaymentOrder.tableName
               })}
             </p>
 
-            <div className="payment-summary">
-              <div>
-                <span>{t(MessageKey.Branch)}</span>
-                <strong>{pendingPaymentOrder.branchName}</strong>
+            <div className="grid gap-2.5 rounded-md border border-border bg-muted/45 p-3">
+              <div className="flex items-center justify-between gap-3 max-[780px]:flex-col max-[780px]:items-stretch">
+                <span className="text-[13px] font-bold text-muted-foreground">{t(MessageKey.Branch)}</span>
+                <strong className="break-words text-right text-secondary-foreground max-[780px]:text-left">{pendingPaymentOrder.branchName}</strong>
               </div>
-              <div>
-                <span>{t(MessageKey.OrdersPaymentMethod)}</span>
-                <strong>{t(MessageKey.OrdersPaymentMethodCash)}</strong>
+              <div className="flex items-center justify-between gap-3 max-[780px]:flex-col max-[780px]:items-stretch">
+                <span className="text-[13px] font-bold text-muted-foreground">{t(MessageKey.OrdersPaymentMethod)}</span>
+                <strong className="break-words text-right text-secondary-foreground max-[780px]:text-left">{t(MessageKey.OrdersPaymentMethodCash)}</strong>
               </div>
-              <div>
-                <span>{t(MessageKey.OrdersTotalAmount)}</span>
-                <strong>{formatCurrency(pendingPaymentOrder.total)}</strong>
+              <div className="flex items-center justify-between gap-3 border-t border-border pt-2.5 max-[780px]:flex-col max-[780px]:items-stretch">
+                <span className="text-[13px] font-bold text-muted-foreground">{t(MessageKey.OrdersTotalAmount)}</span>
+                <strong className="break-words text-right text-xl text-primary max-[780px]:text-left">{formatCurrency(pendingPaymentOrder.total)}</strong>
               </div>
             </div>
 
@@ -629,10 +651,10 @@ export const AdminOrdersPage = () => {
               <StateMessage title={t(actionErrorTitle)} description={updateError} tone="error" />
             ) : null}
 
-            <div className="modal-actions">
+            <div className="flex items-center justify-between gap-3 max-[780px]:flex-col max-[780px]:items-stretch">
               <Button
                 type="button"
-                className="button--secondary button--inline"
+                className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent max-[780px]:w-full"
                 disabled={confirmingPayment}
                 onClick={() => setPendingPaymentOrder(null)}
               >
@@ -640,7 +662,7 @@ export const AdminOrdersPage = () => {
               </Button>
               <Button
                 type="button"
-                className="button--inline"
+                className="mt-0 min-h-9 max-[780px]:w-full"
                 disabled={confirmingPayment}
                 onClick={() => void handleConfirmPayment()}
               >

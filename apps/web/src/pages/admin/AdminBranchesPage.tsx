@@ -1,19 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
-import type { FormEvent } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { StateMessage } from "../../components/ui/StateMessage";
 import { useAuth } from "../../features/auth/AuthContext";
-import { apiClient } from "../../lib/api/client";
-import type { Branch } from "../../lib/api/types";
+import { useBranchesQuery, useCreateBranchMutation, useUpdateBranchMutation } from "../../features/branches/hooks";
+import { branchSchema } from "../../features/branches/schemas";
+import type { BranchFormValues } from "../../features/branches/schemas";
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
-
-type BranchesState =
-  | { status: "loading" }
-  | { status: "success"; branches: Branch[] }
-  | { status: "error"; message: string };
 
 type EditingBranch = {
   id: string;
@@ -23,37 +20,30 @@ type EditingBranch = {
 export const AdminBranchesPage = () => {
   const { token, logout } = useAuth();
   const { locale, t } = useI18n();
-  const [branchesState, setBranchesState] = useState<BranchesState>({ status: "loading" });
-  const [newBranchName, setNewBranchName] = useState("");
   const [editingBranch, setEditingBranch] = useState<EditingBranch | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const loadBranches = useCallback(async () => {
-    if (!token) {
-      setBranchesState({ status: "error", message: t(MessageKey.AuthSessionExpired) });
-      logout();
-      return;
-    }
-
-    setBranchesState({ status: "loading" });
-
-    try {
-      const response = await apiClient.listBranches(token);
-      setBranchesState({ status: "success", branches: response.branches });
-    } catch (error: unknown) {
-      setBranchesState({ status: "error", message: getUserErrorMessage(error, MessageKey.RequestFailed, locale) });
-    }
-  }, [locale, logout, t, token]);
+  const branchesQuery = useBranchesQuery(token);
+  const createBranchMutation = useCreateBranchMutation(token);
+  const updateBranchMutation = useUpdateBranchMutation(token);
+  const form = useForm<BranchFormValues>({
+    resolver: zodResolver(branchSchema),
+    defaultValues: { name: "" }
+  });
+  const fieldError = form.formState.errors.name?.message;
+  const isSubmitting = createBranchMutation.isPending || updateBranchMutation.isPending;
 
   useEffect(() => {
-    void loadBranches();
-  }, [loadBranches]);
+    if (!token) {
+      logout();
+    }
+  }, [logout, token]);
 
-  const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  useEffect(() => {
+    form.reset({ name: editingBranch?.name ?? "" });
+  }, [editingBranch, form]);
 
+  const handleSubmit = async (values: BranchFormValues) => {
     if (!token) {
       logout();
       return;
@@ -61,87 +51,56 @@ export const AdminBranchesPage = () => {
 
     setFormError(null);
     setSuccessMessage(null);
-    setIsSubmitting(true);
 
     try {
-      await apiClient.createBranch(token, {
-        name: newBranchName
-      });
-      setNewBranchName("");
-      await loadBranches();
-      setSuccessMessage(t(MessageKey.BranchesCreated));
+      if (editingBranch) {
+        await updateBranchMutation.mutateAsync({ branchId: editingBranch.id, body: values });
+        setEditingBranch(null);
+        setSuccessMessage(t(MessageKey.BranchesUpdated));
+      } else {
+        await createBranchMutation.mutateAsync(values);
+        form.reset({ name: "" });
+        setSuccessMessage(t(MessageKey.BranchesCreated));
+      }
     } catch (error: unknown) {
       setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
-  const handleUpdate = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!token || !editingBranch) {
-      logout();
-      return;
-    }
-
-    setFormError(null);
-    setSuccessMessage(null);
-    setIsSubmitting(true);
-
-    try {
-      await apiClient.updateBranch(token, editingBranch.id, {
-        name: editingBranch.name
-      });
-      setEditingBranch(null);
-      await loadBranches();
-      setSuccessMessage(t(MessageKey.BranchesUpdated));
-    } catch (error: unknown) {
-      setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const branches = branchesState.status === "success" ? branchesState.branches : [];
+  const branches = branchesQuery.data?.branches ?? [];
+  const loadError = branchesQuery.error
+    ? getUserErrorMessage(branchesQuery.error, MessageKey.RequestFailed, locale)
+    : null;
 
   return (
-    <section className="page-stack">
-      <header className="page-header">
+    <section className="grid gap-5">
+      <header className="flex items-center justify-between gap-4">
         <div>
-          <p className="eyebrow">{t(MessageKey.Setup)}</p>
-          <h1>{t(MessageKey.BranchesTitle)}</h1>
-          <p className="page-subtitle">{t(MessageKey.BranchesSubtitle)}</p>
+          <p className="mb-1.5 mt-0 text-xs font-bold uppercase text-muted-foreground">{t(MessageKey.Setup)}</p>
+          <h1 className="m-0 text-[28px] leading-tight">{t(MessageKey.BranchesTitle)}</h1>
+          <p className="mb-0 mt-2 text-muted-foreground">{t(MessageKey.BranchesSubtitle)}</p>
         </div>
       </header>
 
-      <section className="panel branch-form-panel">
-        <h2>{editingBranch ? t(MessageKey.BranchesEditTitle) : t(MessageKey.BranchesCreateTitle)}</h2>
-        <p className="form-hint">{t(MessageKey.BranchesHint)}</p>
-        <form className="branch-form" onSubmit={editingBranch ? handleUpdate : handleCreate}>
+      <section className="grid gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
+        <h2 className="m-0 text-base">{editingBranch ? t(MessageKey.BranchesEditTitle) : t(MessageKey.BranchesCreateTitle)}</h2>
+        <p className="-mt-1 text-[13px] leading-normal text-muted-foreground">{t(MessageKey.BranchesHint)}</p>
+        <form className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 max-[780px]:grid-cols-1 max-[780px]:items-stretch" onSubmit={form.handleSubmit(handleSubmit)}>
           <Input
             label={t(MessageKey.BranchesNameLabel)}
-            name="branchName"
+            {...form.register("name")}
             placeholder={t(MessageKey.BranchesNamePlaceholder)}
-            value={editingBranch ? editingBranch.name : newBranchName}
-            onChange={(event) => {
-              if (editingBranch) {
-                setEditingBranch({ ...editingBranch, name: event.target.value });
-              } else {
-                setNewBranchName(event.target.value);
-              }
-            }}
-            required
           />
-          <div className="branch-form-actions">
+          <div className="flex gap-2 max-[780px]:justify-start">
             {editingBranch ? (
               <Button
                 type="button"
-                className="button--ghost"
+                className="bg-muted text-secondary-foreground"
                 disabled={isSubmitting}
                 onClick={() => {
                   setEditingBranch(null);
                   setFormError(null);
+                  form.reset({ name: "" });
                 }}
               >
                 {t(MessageKey.Cancel)}
@@ -156,45 +115,46 @@ export const AdminBranchesPage = () => {
             </Button>
           </div>
         </form>
+        {fieldError ? <StateMessage title={t(fieldError as MessageKey)} tone="error" /> : null}
         {successMessage ? <StateMessage title={successMessage} tone="success" /> : null}
         {formError ? (
           <StateMessage title={t(MessageKey.BranchesUnableToSave)} description={formError} tone="error" />
         ) : null}
       </section>
 
-      <section className="panel">
-        <div className="section-header">
+      <section className="rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <div>
-            <h2>{t(MessageKey.BranchesListTitle)}</h2>
+            <h2 className="m-0 text-base">{t(MessageKey.BranchesListTitle)}</h2>
             {branches.length > 0 ? (
-              <p className="section-subtitle">{t(MessageKey.BranchesTotal, { count: branches.length })}</p>
+              <p className="mt-1 text-[13px] leading-normal text-muted-foreground">{t(MessageKey.BranchesTotal, { count: branches.length })}</p>
             ) : null}
           </div>
-          <Button type="button" className="button--secondary button--inline" onClick={() => void loadBranches()}>
+          <Button type="button" className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent" onClick={() => void branchesQuery.refetch()}>
             {t(MessageKey.Refresh)}
           </Button>
         </div>
 
-        {branchesState.status === "loading" ? <StateMessage title={t(MessageKey.BranchesLoading)} /> : null}
-        {branchesState.status === "error" ? (
-          <StateMessage title={t(MessageKey.BranchesUnableToLoad)} description={branchesState.message} tone="error" />
+        {branchesQuery.isLoading ? <StateMessage title={t(MessageKey.BranchesLoading)} /> : null}
+        {loadError ? (
+          <StateMessage title={t(MessageKey.BranchesUnableToLoad)} description={loadError} tone="error" />
         ) : null}
-        {branchesState.status === "success" && branches.length === 0 ? (
+        {branchesQuery.isSuccess && branches.length === 0 ? (
           <StateMessage title={t(MessageKey.BranchesEmptyTitle)} description={t(MessageKey.BranchesEmptyDescription)} />
         ) : null}
         {branches.length > 0 ? (
-          <div className="branch-list">
+          <div className="grid gap-2.5">
             {branches.map((branch) => (
-              <article className="branch-row" key={branch.id}>
-                <div>
+              <article className="flex items-center justify-between gap-3.5 rounded-md border border-border bg-muted/45 p-3 max-[780px]:grid max-[780px]:grid-cols-1" key={branch.id}>
+                <div className="grid min-w-0 gap-1">
                   <strong>{branch.name}</strong>
-                  <span>
+                  <span className="break-words text-[13px] font-bold text-muted-foreground">
                     {t(MessageKey.Updated)} {new Date(branch.updatedAt).toLocaleString(locale)}
                   </span>
                 </div>
                 <Button
                   type="button"
-                  className="button--secondary button--inline"
+                  className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
                   onClick={() => {
                     setFormError(null);
                     setSuccessMessage(null);
