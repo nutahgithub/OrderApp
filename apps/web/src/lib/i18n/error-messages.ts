@@ -1,8 +1,9 @@
-import { ApiClientError } from "../api/client";
+import { ApiClientError } from "../api/http";
 import { MessageKey, t } from "./messages";
 import type { Locale } from "./messages";
 
 const errorCodeToMessageKey: Record<string, MessageKey> = {
+  BRANCH_NOT_EMPTY: MessageKey.BranchesDeleteBlocked,
   BRANCH_NOT_FOUND: MessageKey.ResourceNotFound,
   INTERNAL_ERROR: MessageKey.SystemUnavailable,
   INVALID_CREDENTIALS: MessageKey.AuthInvalidCredentials,

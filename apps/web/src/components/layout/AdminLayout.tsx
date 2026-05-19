@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthContext";
-import { apiClient } from "../../lib/api/client";
+import { branchesApi } from "../../features/branches/api";
 import type { Order } from "../../lib/api/types";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
@@ -165,7 +165,7 @@ export const AdminLayout = () => {
     socket.on("connect", () => {
       void (async () => {
         try {
-          const response = await apiClient.listBranches(token);
+          const response = await branchesApi.list(token);
 
           if (!isActive) {
             return;

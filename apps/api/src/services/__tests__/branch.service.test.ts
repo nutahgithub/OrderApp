@@ -1,19 +1,34 @@
-// npx vitest run src\services\__tests__\branch.service.test.ts
-
 import type { Branch } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createBranch, listBranchesByTenant, updateBranchByTenant } from "../../repositories/branch.repository.js";
+import {
+  countBranchTablesAndOrders,
+  createBranch,
+  deleteEmptyBranchByTenant,
+  findBranchByTenant,
+  listBranchesByTenant,
+  updateBranchByTenant
+} from "../../repositories/branch.repository.js";
 import { ErrorCode } from "../../shared/errors/error-catalog.js";
-import { createTenantBranch, listBranches, updateTenantBranch } from "../branch.service.js";
+import {
+  createTenantBranch,
+  deleteTenantBranch,
+  listBranches,
+  updateTenantBranch
+} from "../branch.service.js";
 
 vi.mock("../../shared/prisma/client.js", () => ({
   prisma: {
-    branch: {}
+    branch: {},
+    order: {},
+    restaurantTable: {}
   }
 }));
 
 vi.mock("../../repositories/branch.repository.js", () => ({
+  countBranchTablesAndOrders: vi.fn(),
   createBranch: vi.fn(),
+  deleteEmptyBranchByTenant: vi.fn(),
+  findBranchByTenant: vi.fn(),
   listBranchesByTenant: vi.fn(),
   updateBranchByTenant: vi.fn()
 }));
@@ -78,5 +93,51 @@ describe("branch service", () => {
       tenantId: "tenant-1",
       name: "Renamed"
     });
+  });
+
+  it("deletes a branch when it has no tables or orders", async () => {
+    vi.mocked(findBranchByTenant).mockResolvedValue(branchFixture());
+    vi.mocked(countBranchTablesAndOrders).mockResolvedValue({ tables: 0, orders: 0 });
+    vi.mocked(deleteEmptyBranchByTenant).mockResolvedValue(1);
+
+    await deleteTenantBranch("tenant-1", "branch-1");
+
+    expect(findBranchByTenant).toHaveBeenCalledWith(expect.any(Object), {
+      branchId: "branch-1",
+      tenantId: "tenant-1"
+    });
+    expect(deleteEmptyBranchByTenant).toHaveBeenCalledWith(expect.any(Object), {
+      branchId: "branch-1",
+      tenantId: "tenant-1"
+    });
+  });
+
+  it("blocks deletion when the branch already has tables", async () => {
+    vi.mocked(findBranchByTenant).mockResolvedValue(branchFixture());
+    vi.mocked(countBranchTablesAndOrders).mockResolvedValue({ tables: 1, orders: 0 });
+
+    await expect(deleteTenantBranch("tenant-1", "branch-1")).rejects.toMatchObject({
+      code: ErrorCode.BranchNotEmpty
+    });
+    expect(deleteEmptyBranchByTenant).not.toHaveBeenCalled();
+  });
+
+  it("blocks deletion when the branch already has orders", async () => {
+    vi.mocked(findBranchByTenant).mockResolvedValue(branchFixture());
+    vi.mocked(countBranchTablesAndOrders).mockResolvedValue({ tables: 0, orders: 1 });
+
+    await expect(deleteTenantBranch("tenant-1", "branch-1")).rejects.toMatchObject({
+      code: ErrorCode.BranchNotEmpty
+    });
+    expect(deleteEmptyBranchByTenant).not.toHaveBeenCalled();
+  });
+
+  it("returns BRANCH_NOT_FOUND for a branch outside the tenant", async () => {
+    vi.mocked(findBranchByTenant).mockResolvedValue(null);
+
+    await expect(deleteTenantBranch("tenant-1", "other-branch")).rejects.toMatchObject({
+      code: ErrorCode.BranchNotFound
+    });
+    expect(countBranchTablesAndOrders).not.toHaveBeenCalled();
   });
 });

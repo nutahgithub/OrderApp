@@ -27,6 +27,31 @@ export const findBranchByTenant = async (
   });
 };
 
+export const countBranchTablesAndOrders = async (
+  db: DbClient,
+  input: {
+    branchId: string;
+    tenantId: string;
+  }
+): Promise<{ tables: number; orders: number }> => {
+  const [tables, orders] = await Promise.all([
+    db.restaurantTable.count({
+      where: {
+        branchId: input.branchId,
+        tenantId: input.tenantId
+      }
+    }),
+    db.order.count({
+      where: {
+        branchId: input.branchId,
+        tenantId: input.tenantId
+      }
+    })
+  ]);
+
+  return { tables, orders };
+};
+
 export const createBranch = async (
   db: DbClient,
   input: {
@@ -40,6 +65,29 @@ export const createBranch = async (
       name: input.name
     }
   });
+};
+
+export const deleteEmptyBranchByTenant = async (
+  db: DbClient,
+  input: {
+    branchId: string;
+    tenantId: string;
+  }
+): Promise<number> => {
+  const result = await db.branch.deleteMany({
+    where: {
+      id: input.branchId,
+      tenantId: input.tenantId,
+      tables: {
+        none: {}
+      },
+      orders: {
+        none: {}
+      }
+    }
+  });
+
+  return result.count;
 };
 
 export const updateBranchByTenant = async (

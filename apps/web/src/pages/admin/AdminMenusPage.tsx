@@ -37,6 +37,35 @@ const formatCurrency = (price: string): string => {
   }).format(Number(price));
 };
 
+const normalizePriceInput = (value: string): string => {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return "";
+  }
+
+  const [wholePart = "", decimalPart] = trimmedValue.split(",");
+  const wholeDigits = wholePart.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+
+  if (decimalPart === undefined) {
+    return wholeDigits;
+  }
+
+  const decimalDigits = decimalPart.replace(/\D/g, "").slice(0, 2);
+
+  return decimalDigits ? `${wholeDigits || "0"}.${decimalDigits}` : wholeDigits;
+};
+
+const formatPriceInput = (price: string): string => {
+  if (!price) {
+    return "";
+  }
+
+  return new Intl.NumberFormat("vi-VN", {
+    maximumFractionDigits: 2
+  }).format(Number(price));
+};
+
 const readFileAsDataUrl = (file: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -305,7 +334,7 @@ export const AdminMenusPage = () => {
       <section className="grid gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
         <h2 className="m-0 text-base">{editingMenu ? t(MessageKey.MenusEditTitle) : t(MessageKey.MenusCreateTitle)}</h2>
         <p className="-mt-1 text-[13px] leading-normal text-muted-foreground">{t(MessageKey.MenusHint)}</p>
-        <form className="grid grid-cols-[minmax(0,1fr)_160px_minmax(220px,1fr)_150px_auto] items-end gap-3 max-[780px]:grid-cols-1 max-[780px]:items-stretch" onSubmit={editingMenu ? handleUpdate : handleCreate}>
+        <form className="grid grid-cols-[minmax(0,1fr)_190px_minmax(260px,1fr)_150px_auto] items-end gap-3 pb-5 max-[1100px]:grid-cols-[minmax(0,1fr)_190px_minmax(260px,1fr)] max-[1100px]:pb-0 max-[780px]:grid-cols-1 max-[780px]:items-stretch" onSubmit={editingMenu ? handleUpdate : handleCreate}>
           <Input
             label={t(MessageKey.MenusDishNameLabel)}
             name="menuName"
@@ -320,22 +349,31 @@ export const AdminMenusPage = () => {
             }}
             required
           />
-          <Input
-            label={t(MessageKey.MenusPriceLabel)}
-            name="menuPrice"
-            inputMode="decimal"
-            placeholder={t(MessageKey.MenusPricePlaceholder)}
-            value={formPrice}
-            onChange={(event) => {
-              if (editingMenu) {
-                setEditingMenu({ ...editingMenu, price: event.target.value });
-              } else {
-                setNewMenuPrice(event.target.value);
-              }
-            }}
-            required
-          />
-          <label className="grid gap-1.5 text-sm font-semibold text-foreground">
+          <label className="grid gap-1.5 text-sm font-semibold text-foreground" htmlFor="menuPrice">
+            <span>{t(MessageKey.MenusPriceLabel)}</span>
+            <span className="flex items-center gap-2">
+              <input
+                id="menuPrice"
+                className="min-h-[42px] min-w-0 flex-1 rounded-md border border-input bg-card px-3 py-2 text-foreground shadow-sm transition placeholder:text-muted-foreground/70 hover:border-ring/60 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-60"
+                name="menuPrice"
+                inputMode="decimal"
+                placeholder={t(MessageKey.MenusPricePlaceholder)}
+                value={formatPriceInput(formPrice)}
+                onChange={(event) => {
+                  const nextPrice = normalizePriceInput(event.target.value);
+
+                  if (editingMenu) {
+                    setEditingMenu({ ...editingMenu, price: nextPrice });
+                  } else {
+                    setNewMenuPrice(nextPrice);
+                  }
+                }}
+                required
+              />
+              <span className="flex-none text-sm font-extrabold text-muted-foreground">đ</span>
+            </span>
+          </label>
+          <label className="grid min-w-0 gap-1.5 text-sm font-semibold text-foreground min-[1101px]:relative min-[1101px]:self-end">
             <span>{t(MessageKey.MenusImageLabel)}</span>
             <input
               className="min-h-[42px] w-full rounded-md border border-input bg-card p-2 text-foreground"
@@ -352,13 +390,13 @@ export const AdminMenusPage = () => {
                 }
               }}
             />
-            <span className="text-xs font-medium leading-normal text-muted-foreground">
+            <span className="text-xs font-medium leading-normal text-muted-foreground min-[1101px]:absolute min-[1101px]:left-0 min-[1101px]:right-0 min-[1101px]:top-[calc(100%+0.375rem)]">
               {formImageFile
                 ? t(MessageKey.MenusImageSelected, { fileName: formImageFile.name })
                 : t(MessageKey.MenusImageHint)}
             </span>
           </label>
-          <label className="flex min-h-[42px] items-center gap-2 text-sm font-bold text-foreground">
+          <label className="flex min-h-[42px] items-center gap-2 text-sm font-bold text-foreground max-[1100px]:justify-start">
             <input
               className="h-[18px] w-[18px]"
               type="checkbox"
@@ -373,7 +411,7 @@ export const AdminMenusPage = () => {
             />
             {t(MessageKey.MenusAvailableToCustomers)}
           </label>
-          <div className="flex gap-2 max-[780px]:justify-start">
+          <div className="flex gap-2 max-[1100px]:justify-start">
             {editingMenu ? (
               <Button type="button" className="bg-muted text-secondary-foreground" disabled={isSubmitting} onClick={resetForm}>
                 {t(MessageKey.Cancel)}

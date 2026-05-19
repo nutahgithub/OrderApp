@@ -38,6 +38,20 @@ export type CreateQrOrderInput = {
 export type ListOrdersInput = {
   branchId: string;
   status?: OrderStatus;
+  startDate?: string;
+  endDate?: string;
+  page: number;
+  pageSize: number;
+};
+
+export type ListOrdersResultDto = {
+  orders: OrderDto[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
 };
 
 export type UpdateOrderStatusInput = {

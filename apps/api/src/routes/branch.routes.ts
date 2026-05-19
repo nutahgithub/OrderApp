@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   createBranchController,
+  deleteBranchController,
   listBranchesController,
   updateBranchController
 } from "../controllers/branch.controller.js";
@@ -13,3 +14,4 @@ branchRouter.use(requireAdminAuth);
 branchRouter.get("/", asyncHandler(listBranchesController));
 branchRouter.post("/", asyncHandler(createBranchController));
 branchRouter.patch("/:branchId", asyncHandler(updateBranchController));
+branchRouter.delete("/:branchId", asyncHandler(deleteBranchController));

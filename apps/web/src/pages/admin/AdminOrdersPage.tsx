@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/ui/Button";
+import { DateField } from "../../components/ui/DateField";
+import { SelectField } from "../../components/ui/SelectField";
 import { StateMessage } from "../../components/ui/StateMessage";
 import { useAuth } from "../../features/auth/AuthContext";
+import { branchesApi } from "../../features/branches/api";
+import { ordersApi } from "../../features/orders/api";
 import { useConfirmPaymentMutation, useUpdateOrderStatusMutation } from "../../features/orders/hooks";
-import { apiClient } from "../../lib/api/client";
 import type { Branch, Order, OrderDetail, OrderStatus, UpdateOrderStatusRequest } from "../../lib/api/types";
+import { formatDateTime, toDateInputValue } from "../../lib/format/date";
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
@@ -26,6 +30,13 @@ type OrdersState =
   | { status: "loading" }
   | { status: "success"; orders: Order[] }
   | { status: "error"; message: string };
+
+type OrdersPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
 
 type OrderDetailState =
   | { status: "idle" }
@@ -54,6 +65,8 @@ const operationStatusOptions: UpdateOrderStatusRequest["status"][] = [
   "CANCELLED"
 ];
 
+const ordersPageSize = 10;
+
 export const AdminOrdersPage = () => {
   const { token, logout } = useAuth();
   const { locale, t } = useI18n();
@@ -62,6 +75,14 @@ export const AdminOrdersPage = () => {
   const [orderDetailState, setOrderDetailState] = useState<OrderDetailState>({ status: "idle" });
   const [selectedBranchId, setSelectedBranchId] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | "ALL">("ALL");
+  const [selectedOrderDate, setSelectedOrderDate] = useState(() => toDateInputValue(new Date()));
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [ordersPagination, setOrdersPagination] = useState<OrdersPagination>({
+    page: 1,
+    pageSize: ordersPageSize,
+    total: 0,
+    totalPages: 1
+  });
   const [selectedOrderId, setSelectedOrderId] = useState("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
@@ -117,40 +138,14 @@ export const AdminOrdersPage = () => {
 
   const shouldShowOrder = useCallback(
     (order: Order): boolean => {
-      return order.branchId === selectedBranchId && (selectedStatus === "ALL" || order.status === selectedStatus);
+      return (
+        order.branchId === selectedBranchId &&
+        order.createdAt.slice(0, 10) === selectedOrderDate &&
+        (selectedStatus === "ALL" || order.status === selectedStatus)
+      );
     },
-    [selectedBranchId, selectedStatus]
+    [selectedBranchId, selectedOrderDate, selectedStatus]
   );
-
-  const upsertOrder = useCallback((order: Order) => {
-    setOrdersState((currentState) => {
-      if (currentState.status !== "success") {
-        return currentState;
-      }
-
-      const withoutCurrent = currentState.orders.filter((currentOrder) => currentOrder.id !== order.id);
-
-      return {
-        status: "success",
-        orders: [order, ...withoutCurrent].sort(
-          (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
-        )
-      };
-    });
-  }, []);
-
-  const removeOrder = useCallback((orderId: string) => {
-    setOrdersState((currentState) => {
-      if (currentState.status !== "success") {
-        return currentState;
-      }
-
-      return {
-        status: "success",
-        orders: currentState.orders.filter((order) => order.id !== orderId)
-      };
-    });
-  }, []);
 
   const loadBranches = useCallback(async () => {
     if (!token) {
@@ -162,7 +157,7 @@ export const AdminOrdersPage = () => {
     setBranchesState({ status: "loading" });
 
     try {
-      const response = await apiClient.listBranches(token);
+      const response = await branchesApi.list(token);
       setBranchesState({ status: "success", branches: response.branches });
       setSelectedBranchId((currentBranchId) => currentBranchId || response.branches[0]?.id || "");
     } catch (error: unknown) {
@@ -186,7 +181,7 @@ export const AdminOrdersPage = () => {
       setOrderDetailState({ status: "loading" });
 
       try {
-        const response = await apiClient.getOrder(token, orderId);
+        const response = await ordersApi.get(token, orderId);
         setOrderDetailState({ status: "success", order: response.order });
       } catch (error: unknown) {
         setOrderDetailState({ status: "error", message: getUserErrorMessage(error, MessageKey.RequestFailed, locale) });
@@ -196,7 +191,7 @@ export const AdminOrdersPage = () => {
   );
 
   const loadOrders = useCallback(
-    async (branchId: string, status: OrderStatus | "ALL") => {
+    async (branchId: string, status: OrderStatus | "ALL", orderDate: string, page: number) => {
       if (!token) {
         setOrdersState({ status: "error", message: t(MessageKey.AuthSessionExpired) });
         logout();
@@ -205,6 +200,12 @@ export const AdminOrdersPage = () => {
 
       if (!branchId) {
         setOrdersState({ status: "idle" });
+        setOrdersPagination({
+          page: 1,
+          pageSize: ordersPageSize,
+          total: 0,
+          totalPages: 1
+        });
         setSelectedOrderId("");
         setOrderDetailState({ status: "idle" });
         return;
@@ -213,8 +214,20 @@ export const AdminOrdersPage = () => {
       setOrdersState({ status: "loading" });
 
       try {
-        const response = await apiClient.listOrders(token, branchId, status === "ALL" ? undefined : status);
+        const response = await ordersApi.list(token, {
+          branchId,
+          status: status === "ALL" ? undefined : status,
+          startDate: orderDate,
+          endDate: orderDate,
+          page,
+          pageSize: ordersPageSize
+        });
         setOrdersState({ status: "success", orders: response.orders });
+        setOrdersPagination(response.pagination);
+        if (response.orders.length === 0 && page > response.pagination.totalPages) {
+          setOrdersPage(response.pagination.totalPages);
+          return;
+        }
         setSelectedOrderId((currentOrderId) => {
           if (response.orders.some((order) => order.id === currentOrderId)) {
             return currentOrderId;
@@ -234,8 +247,8 @@ export const AdminOrdersPage = () => {
   }, [loadBranches]);
 
   useEffect(() => {
-    void loadOrders(selectedBranchId, selectedStatus);
-  }, [loadOrders, selectedBranchId, selectedStatus]);
+    void loadOrders(selectedBranchId, selectedStatus, selectedOrderDate, ordersPage);
+  }, [loadOrders, ordersPage, selectedBranchId, selectedOrderDate, selectedStatus]);
 
   useEffect(() => {
     void loadOrderDetail(selectedOrderId);
@@ -258,7 +271,7 @@ export const AdminOrdersPage = () => {
       window.clearTimeout(fallbackTimer);
       setRealtimeState("connected");
       socket.emit(RealtimeEvent.AdminJoinBranch, { branchId: selectedBranchId });
-      void loadOrders(selectedBranchId, selectedStatus);
+      void loadOrders(selectedBranchId, selectedStatus, selectedOrderDate, ordersPage);
     });
 
     socket.on("connect_error", () => {
@@ -277,15 +290,13 @@ export const AdminOrdersPage = () => {
         return;
       }
 
-      upsertOrder(payload.order);
+      void loadOrders(selectedBranchId, selectedStatus, selectedOrderDate, ordersPage);
       setSelectedOrderId((currentOrderId) => currentOrderId || payload.order.id);
     });
 
     socket.on(RealtimeEvent.OrderStatusUpdated, (payload) => {
-      if (shouldShowOrder(payload.order)) {
-        upsertOrder(payload.order);
-      } else {
-        removeOrder(payload.order.id);
+      if (payload.order.branchId === selectedBranchId && payload.order.createdAt.slice(0, 10) === selectedOrderDate) {
+        void loadOrders(selectedBranchId, selectedStatus, selectedOrderDate, ordersPage);
       }
 
       setOrderDetailState((currentState) => {
@@ -298,10 +309,8 @@ export const AdminOrdersPage = () => {
     });
 
     socket.on(RealtimeEvent.PaymentCompleted, (payload) => {
-      if (shouldShowOrder(payload.order)) {
-        upsertOrder(payload.order);
-      } else {
-        removeOrder(payload.order.id);
+      if (payload.order.branchId === selectedBranchId && payload.order.createdAt.slice(0, 10) === selectedOrderDate) {
+        void loadOrders(selectedBranchId, selectedStatus, selectedOrderDate, ordersPage);
       }
 
       setOrderDetailState((currentState) => {
@@ -319,7 +328,7 @@ export const AdminOrdersPage = () => {
       window.clearTimeout(fallbackTimer);
       socket.disconnect();
     };
-  }, [loadOrders, removeOrder, selectedBranchId, selectedStatus, shouldShowOrder, token, upsertOrder]);
+  }, [loadOrders, ordersPage, selectedBranchId, selectedOrderDate, selectedStatus, shouldShowOrder, token]);
 
   const handleStatusUpdate = async (status: UpdateOrderStatusRequest["status"]) => {
     if (!token || !selectedOrderId) {
@@ -335,7 +344,7 @@ export const AdminOrdersPage = () => {
     try {
       const response = await updateOrderStatusMutation.mutateAsync({ orderId: selectedOrderId, status });
       setOrderDetailState({ status: "success", order: response.order });
-      upsertOrder(response.order);
+      void loadOrders(selectedBranchId, selectedStatus, selectedOrderDate, ordersPage);
       setSelectedOrderId(response.order.id);
       setSuccessMessage(t(MessageKey.OrdersStatusUpdated));
     } catch (error: unknown) {
@@ -366,7 +375,7 @@ export const AdminOrdersPage = () => {
         amount: pendingPaymentOrder.total
       });
       setOrderDetailState({ status: "success", order: response.order });
-      upsertOrder(response.order);
+      void loadOrders(selectedBranchId, selectedStatus, selectedOrderDate, ordersPage);
       setSelectedOrderId(response.order.id);
       setPendingPaymentOrder(null);
       setSuccessMessage(t(MessageKey.OrdersPaymentCompleted));
@@ -387,55 +396,52 @@ export const AdminOrdersPage = () => {
         </div>
       </header>
 
-      <section className="grid grid-cols-[minmax(0,320px)_minmax(0,220px)_auto_auto] items-end gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel max-[780px]:grid-cols-1 max-[780px]:items-stretch">
-        <label className="grid gap-1.5 text-sm font-semibold text-foreground">
-          {t(MessageKey.Branch)}
-          <select
-            className="min-h-[42px] w-full rounded-md border border-input bg-card px-2.5 py-2 text-foreground"
-            value={selectedBranchId}
-            onChange={(event) => {
-              setSelectedBranchId(event.target.value);
+      <section className="grid grid-cols-[minmax(0,260px)_minmax(0,190px)_minmax(0,180px)_auto_auto] items-end gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel max-[780px]:grid-cols-1 max-[780px]:items-stretch">
+        <SelectField
+          label={t(MessageKey.Branch)}
+          options={branches.map((branch) => ({ label: branch.name, value: branch.id }))}
+          value={selectedBranchId}
+          disabled={branches.length === 0}
+          onValueChange={(value) => {
+              setSelectedBranchId(value);
+              setOrdersPage(1);
               setSelectedOrderId("");
               setSuccessMessage(null);
               setUpdateError(null);
             }}
-            disabled={branches.length === 0}
-          >
-            {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1.5 text-sm font-semibold text-foreground">
-          {t(MessageKey.Status)}
-          <select
-            className="min-h-[42px] w-full rounded-md border border-input bg-card px-2.5 py-2 text-foreground"
-            value={selectedStatus}
-            onChange={(event) => {
-              setSelectedStatus(event.target.value as OrderStatus | "ALL");
+        />
+        <SelectField
+          label={t(MessageKey.Status)}
+          options={allStatusOptions.map((status) => ({ label: getOrderStatusLabel(status), value: status }))}
+          value={selectedStatus}
+          onValueChange={(value) => {
+              setSelectedStatus(value as OrderStatus | "ALL");
+              setOrdersPage(1);
               setSelectedOrderId("");
               setSuccessMessage(null);
               setUpdateError(null);
             }}
-          >
-            {allStatusOptions.map((status) => (
-              <option key={status} value={status}>
-                {getOrderStatusLabel(status)}
-              </option>
-            ))}
-          </select>
-        </label>
+        />
+        <DateField
+          label={t(MessageKey.OrdersDate)}
+          value={selectedOrderDate}
+          onValueChange={(value) => {
+              setSelectedOrderDate(value);
+              setOrdersPage(1);
+              setSelectedOrderId("");
+              setSuccessMessage(null);
+              setUpdateError(null);
+            }}
+        />
         <Button
           type="button"
           className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
           disabled={!selectedBranchId}
-          onClick={() => void loadOrders(selectedBranchId, selectedStatus)}
+          onClick={() => void loadOrders(selectedBranchId, selectedStatus, selectedOrderDate, ordersPage)}
         >
           {t(MessageKey.Refresh)}
         </Button>
-        <span className={cn("inline-flex min-h-[30px] items-center justify-center self-center rounded-full px-2.5 py-1 text-xs font-extrabold", getRealtimeConnectionClassName(realtimeState))}>
+        <span className={cn("inline-flex min-h-9 items-center justify-center self-end rounded-full px-2.5 py-1 text-xs font-extrabold max-[780px]:self-stretch", getRealtimeConnectionClassName(realtimeState))}>
           {realtimeState === "connected" ? t(MessageKey.RealtimeConnected) : null}
           {realtimeState === "connecting" ? t(MessageKey.RealtimeConnecting) : null}
           {realtimeState === "fallback" ? t(MessageKey.RealtimeFallback) : null}
@@ -459,8 +465,8 @@ export const AdminOrdersPage = () => {
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="m-0 text-base">{t(MessageKey.OrdersListTitle)}</h2>
-                {orders.length > 0 ? (
-                  <p className="mt-1 text-[13px] leading-normal text-muted-foreground">{t(MessageKey.OrdersTotal, { count: orders.length })}</p>
+                {ordersState.status === "success" ? (
+                  <p className="mt-1 text-[13px] leading-normal text-muted-foreground">{t(MessageKey.OrdersTotal, { count: ordersPagination.total })}</p>
                 ) : null}
               </div>
             </div>
@@ -491,7 +497,7 @@ export const AdminOrdersPage = () => {
                   >
                     <span className="grid min-w-0 gap-1">
                       <strong>{order.tableName}</strong>
-                      <small className="break-words text-[13px] text-muted-foreground">{new Date(order.createdAt).toLocaleString(locale)}</small>
+                      <small className="break-words text-[13px] text-muted-foreground">{formatDateTime(order.createdAt)}</small>
                     </span>
                     <span className={cn(statusPillClassName, getOrderStatusClassName(order.status))}>
                       {getOrderStatusLabel(order.status)}
@@ -499,6 +505,38 @@ export const AdminOrdersPage = () => {
                     <b className="text-primary">{formatCurrency(order.total)}</b>
                   </button>
                 ))}
+              </div>
+            ) : null}
+            {ordersState.status === "success" && ordersPagination.totalPages > 1 ? (
+              <div className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-3 max-[780px]:flex-col max-[780px]:items-stretch">
+                <Button
+                  type="button"
+                  className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
+                  disabled={ordersPage <= 1}
+                  onClick={() => {
+                    setOrdersPage((currentPage) => Math.max(1, currentPage - 1));
+                    setSelectedOrderId("");
+                  }}
+                >
+                  {t(MessageKey.OrdersPreviousPage)}
+                </Button>
+                <span className="text-center text-[13px] font-bold text-muted-foreground">
+                  {t(MessageKey.OrdersPageSummary, {
+                    page: ordersPagination.page,
+                    totalPages: ordersPagination.totalPages
+                  })}
+                </span>
+                <Button
+                  type="button"
+                  className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
+                  disabled={ordersPage >= ordersPagination.totalPages}
+                  onClick={() => {
+                    setOrdersPage((currentPage) => Math.min(ordersPagination.totalPages, currentPage + 1));
+                    setSelectedOrderId("");
+                  }}
+                >
+                  {t(MessageKey.OrdersNextPage)}
+                </Button>
               </div>
             ) : null}
           </section>
@@ -516,7 +554,7 @@ export const AdminOrdersPage = () => {
                     <h2 className="m-0 text-base">{t(MessageKey.OrdersDetailTitle, { tableName: orderDetailState.order.tableName })}</h2>
                     <p className="mt-1 text-[13px] leading-normal text-muted-foreground">
                       {orderDetailState.order.branchName} &middot;{" "}
-                      {new Date(orderDetailState.order.createdAt).toLocaleString(locale)}
+                      {formatDateTime(orderDetailState.order.createdAt)}
                     </p>
                   </div>
                   <span className={cn(statusPillClassName, getOrderStatusClassName(orderDetailState.order.status))}>

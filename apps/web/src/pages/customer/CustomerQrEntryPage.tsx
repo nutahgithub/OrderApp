@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { StateMessage } from "../../components/ui/StateMessage";
-import { apiClient } from "../../lib/api/client";
+import { qrApi } from "../../features/customer-order/api";
 import type { Menu, OrderDetail, OrderStatus, QrEntry } from "../../lib/api/types";
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
@@ -63,7 +63,7 @@ export const CustomerQrEntryPage = () => {
       setQrEntryState({ status: "loading" });
 
       try {
-        const response = await apiClient.getQrEntry(tenantId, branchId, tableId);
+        const response = await qrApi.getEntry(tenantId, branchId, tableId);
 
         if (isMounted) {
           setQrEntryState({ status: "success", qrEntry: response.qrEntry });
@@ -99,7 +99,7 @@ export const CustomerQrEntryPage = () => {
       setMenusState({ status: "loading" });
 
       try {
-        const response = await apiClient.listPublicMenus(tenantId, branchId, tableId);
+        const response = await qrApi.listMenus(tenantId, branchId, tableId);
 
         if (isMounted) {
           setMenusState({ status: "success", menus: response.menus });
@@ -226,7 +226,7 @@ export const CustomerQrEntryPage = () => {
     }
 
     try {
-      const response = await apiClient.getQrOrder(tenantId, branchId, tableId, orderId);
+      const response = await qrApi.getOrder(tenantId, branchId, tableId, orderId);
       setOrderState({ status: "success", order: response.order });
     } catch (error: unknown) {
       setOrderState({ status: "error", message: getUserErrorMessage(error, MessageKey.RequestFailed, locale) });
@@ -240,7 +240,7 @@ export const CustomerQrEntryPage = () => {
     setOrderState({ status: "submitting" });
 
     try {
-      const response = await apiClient.createQrOrder(tenantId, branchId, tableId, {
+      const response = await qrApi.createOrder(tenantId, branchId, tableId, {
         items: cartItems.map((item) => ({
           menuId: item.menu.id,
           quantity: item.quantity
@@ -305,10 +305,10 @@ export const CustomerQrEntryPage = () => {
                   <span className="break-words text-[13px] text-muted-foreground">{t(MessageKey.QrAvailableNow)}</span>
                 </div>
                 <b className="ml-auto flex-none text-primary max-[780px]:ml-0">{formatCurrency(menu.price)}</b>
-                <div className="inline-grid flex-none grid-cols-[32px_32px_32px] items-center justify-end gap-1 max-[780px]:w-full max-[780px]:justify-start">
+                <div className="inline-grid flex-none grid-cols-[42px_36px_42px] items-center justify-end gap-1.5 max-[780px]:w-full max-[780px]:justify-start">
                   <Button
                     type="button"
-                    className="min-h-8 w-8 bg-secondary p-0 text-secondary-foreground hover:bg-accent"
+                    className="min-h-[42px] w-[42px] touch-manipulation bg-secondary p-0 text-base text-secondary-foreground hover:bg-accent"
                     aria-label={t(MessageKey.QrDecreaseItem)}
                     onClick={() => updateCart(menu.id, -1)}
                     disabled={(cart[menu.id] ?? 0) === 0 || orderState.status === "submitting"}
@@ -318,7 +318,7 @@ export const CustomerQrEntryPage = () => {
                   <span className="text-center font-extrabold text-secondary-foreground">{cart[menu.id] ?? 0}</span>
                   <Button
                     type="button"
-                    className="min-h-8 w-8 bg-secondary p-0 text-secondary-foreground hover:bg-accent"
+                    className="min-h-[42px] w-[42px] touch-manipulation bg-secondary p-0 text-base text-secondary-foreground hover:bg-accent"
                     aria-label={t(MessageKey.QrIncreaseItem)}
                     onClick={() => updateCart(menu.id, 1)}
                     disabled={orderState.status === "submitting"}

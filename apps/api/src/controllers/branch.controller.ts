@@ -4,7 +4,7 @@ import { AppError } from "../shared/errors/app-error.js";
 import { ErrorCode } from "../shared/errors/error-catalog.js";
 import { created, ok } from "../shared/http/api-response.js";
 import { parseBody, parseParams } from "../shared/http/validation.js";
-import { createTenantBranch, listBranches, updateTenantBranch } from "../services/branch.service.js";
+import { createTenantBranch, deleteTenantBranch, listBranches, updateTenantBranch } from "../services/branch.service.js";
 
 const getTenantId = (request: Request): string => {
   if (!request.auth) {
@@ -38,5 +38,15 @@ export const updateBranchController = async (request: Request, response: Respons
 
   ok(response, {
     branch
+  });
+};
+
+export const deleteBranchController = async (request: Request, response: Response) => {
+  const params = parseParams(request, branchParamsSchema);
+
+  await deleteTenantBranch(getTenantId(request), params.branchId);
+
+  ok(response, {
+    branchId: params.branchId
   });
 };

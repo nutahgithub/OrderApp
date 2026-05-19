@@ -45,17 +45,58 @@ export const listOrdersByTenantBranch = async (
     tenantId: string;
     branchId: string;
     status?: OrderStatus;
+    startDate?: Date;
+    endDateExclusive?: Date;
+    skip: number;
+    take: number;
   }
 ): Promise<OrderRecord[]> => {
   return db.order.findMany({
     where: {
       tenantId: input.tenantId,
       branchId: input.branchId,
-      ...(input.status ? { status: input.status } : {})
+      ...(input.status ? { status: input.status } : {}),
+      ...(input.startDate && input.endDateExclusive
+        ? {
+            createdAt: {
+              gte: input.startDate,
+              lt: input.endDateExclusive
+            }
+          }
+        : {})
     },
     include: orderInclude,
     orderBy: {
       createdAt: "desc"
+    },
+    skip: input.skip,
+    take: input.take
+  });
+};
+
+export const countOrdersByTenantBranch = async (
+  db: DbClient,
+  input: {
+    tenantId: string;
+    branchId: string;
+    status?: OrderStatus;
+    startDate?: Date;
+    endDateExclusive?: Date;
+  }
+): Promise<number> => {
+  return db.order.count({
+    where: {
+      tenantId: input.tenantId,
+      branchId: input.branchId,
+      ...(input.status ? { status: input.status } : {}),
+      ...(input.startDate && input.endDateExclusive
+        ? {
+            createdAt: {
+              gte: input.startDate,
+              lt: input.endDateExclusive
+            }
+          }
+        : {})
     }
   });
 };

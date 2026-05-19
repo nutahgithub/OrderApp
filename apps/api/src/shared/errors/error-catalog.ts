@@ -1,5 +1,6 @@
 export const ErrorCode = {
   AdminNotFound: "ADMIN_NOT_FOUND",
+  BranchNotEmpty: "BRANCH_NOT_EMPTY",
   BranchNotFound: "BRANCH_NOT_FOUND",
   InternalError: "INTERNAL_ERROR",
   InvalidCredentials: "INVALID_CREDENTIALS",
@@ -32,6 +33,11 @@ export const errorCatalog = {
     code: ErrorCode.AdminNotFound,
     message: "Admin not found",
     statusCode: 404
+  },
+  [ErrorCode.BranchNotEmpty]: {
+    code: ErrorCode.BranchNotEmpty,
+    message: "Branch cannot be deleted after tables or orders have been created",
+    statusCode: 409
   },
   [ErrorCode.BranchNotFound]: {
     code: ErrorCode.BranchNotFound,

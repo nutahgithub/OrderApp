@@ -3,6 +3,7 @@ import { OrderStatus, Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { findBranchByTenant } from "../../repositories/branch.repository.js";
 import {
+  countOrdersByTenantBranch,
   findOrderByTenant,
   listOrdersByTenantBranch,
   updateOrderStatusByTenant
@@ -23,6 +24,7 @@ vi.mock("../../repositories/branch.repository.js", () => ({
 }));
 
 vi.mock("../../repositories/order.repository.js", () => ({
+  countOrdersByTenantBranch: vi.fn(),
   findOrderByTenant: vi.fn(),
   listOrdersByTenantBranch: vi.fn(),
   updateOrderStatusByTenant: vi.fn()
@@ -118,10 +120,15 @@ describe("order service", () => {
   it("lists orders for a branch inside the tenant scope", async () => {
     vi.mocked(findBranchByTenant).mockResolvedValue(branchFixture());
     vi.mocked(listOrdersByTenantBranch).mockResolvedValue([orderRecordFixture()]);
+    vi.mocked(countOrdersByTenantBranch).mockResolvedValue(1);
 
     const result = await listTenantOrders("tenant-1", {
       branchId: "branch-1",
-      status: OrderStatus.PENDING
+      status: OrderStatus.PENDING,
+      startDate: "2026-05-13",
+      endDate: "2026-05-13",
+      page: 1,
+      pageSize: 10
     });
 
     expect(findBranchByTenant).toHaveBeenCalledWith(expect.any(Object), {
@@ -131,9 +138,21 @@ describe("order service", () => {
     expect(listOrdersByTenantBranch).toHaveBeenCalledWith(expect.any(Object), {
       tenantId: "tenant-1",
       branchId: "branch-1",
-      status: OrderStatus.PENDING
+      status: OrderStatus.PENDING,
+      startDate: new Date("2026-05-13T00:00:00.000Z"),
+      endDateExclusive: new Date("2026-05-14T00:00:00.000Z"),
+      skip: 0,
+      take: 10
     });
-    expect(result).toEqual([
+    expect(countOrdersByTenantBranch).toHaveBeenCalledWith(expect.any(Object), {
+      tenantId: "tenant-1",
+      branchId: "branch-1",
+      status: OrderStatus.PENDING,
+      startDate: new Date("2026-05-13T00:00:00.000Z"),
+      endDateExclusive: new Date("2026-05-14T00:00:00.000Z")
+    });
+    expect(result).toEqual({
+      orders: [
       expect.objectContaining({
         id: "order-1",
         branchName: "Main Branch",
@@ -141,13 +160,22 @@ describe("order service", () => {
         total: "90000.00",
         itemCount: 2
       })
-    ]);
+      ],
+      pagination: {
+        page: 1,
+        pageSize: 10,
+        total: 1,
+        totalPages: 1
+      }
+    });
   });
 
   it("rejects listing orders for a branch outside the tenant", async () => {
     vi.mocked(findBranchByTenant).mockResolvedValue(null);
 
-    await expect(listTenantOrders("tenant-1", { branchId: "branch-2" })).rejects.toMatchObject({
+    await expect(
+      listTenantOrders("tenant-1", { branchId: "branch-2", page: 1, pageSize: 10 })
+    ).rejects.toMatchObject({
       code: ErrorCode.BranchNotFound
     });
     expect(listOrdersByTenantBranch).not.toHaveBeenCalled();

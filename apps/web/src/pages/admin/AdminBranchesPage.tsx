@@ -5,9 +5,16 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { StateMessage } from "../../components/ui/StateMessage";
 import { useAuth } from "../../features/auth/AuthContext";
-import { useBranchesQuery, useCreateBranchMutation, useUpdateBranchMutation } from "../../features/branches/hooks";
+import {
+  useBranchesQuery,
+  useCreateBranchMutation,
+  useDeleteBranchMutation,
+  useUpdateBranchMutation
+} from "../../features/branches/hooks";
 import { branchSchema } from "../../features/branches/schemas";
 import type { BranchFormValues } from "../../features/branches/schemas";
+import { ApiClientError } from "../../lib/api/http";
+import { formatDateTime } from "../../lib/format/date";
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
@@ -21,10 +28,13 @@ export const AdminBranchesPage = () => {
   const { token, logout } = useAuth();
   const { locale, t } = useI18n();
   const [editingBranch, setEditingBranch] = useState<EditingBranch | null>(null);
+  const [deleteBlockedMessage, setDeleteBlockedMessage] = useState<string | null>(null);
+  const [pendingDeleteBranch, setPendingDeleteBranch] = useState<EditingBranch | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const branchesQuery = useBranchesQuery(token);
   const createBranchMutation = useCreateBranchMutation(token);
+  const deleteBranchMutation = useDeleteBranchMutation(token);
   const updateBranchMutation = useUpdateBranchMutation(token);
   const form = useForm<BranchFormValues>({
     resolver: zodResolver(branchSchema),
@@ -32,6 +42,7 @@ export const AdminBranchesPage = () => {
   });
   const fieldError = form.formState.errors.name?.message;
   const isSubmitting = createBranchMutation.isPending || updateBranchMutation.isPending;
+  const isDeleting = deleteBranchMutation.isPending;
 
   useEffect(() => {
     if (!token) {
@@ -50,6 +61,7 @@ export const AdminBranchesPage = () => {
     }
 
     setFormError(null);
+    setDeleteBlockedMessage(null);
     setSuccessMessage(null);
 
     try {
@@ -64,6 +76,47 @@ export const AdminBranchesPage = () => {
       }
     } catch (error: unknown) {
       setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
+    }
+  };
+
+  const openDeleteDialog = (branch: EditingBranch) => {
+    setDeleteBlockedMessage(null);
+    setFormError(null);
+    setSuccessMessage(null);
+    setPendingDeleteBranch(branch);
+  };
+
+  const handleDelete = async () => {
+    if (!token) {
+      logout();
+      return;
+    }
+
+    if (!pendingDeleteBranch) {
+      return;
+    }
+
+    setFormError(null);
+    setDeleteBlockedMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      await deleteBranchMutation.mutateAsync(pendingDeleteBranch.id);
+      if (editingBranch?.id === pendingDeleteBranch.id) {
+        setEditingBranch(null);
+        form.reset({ name: "" });
+      }
+      setPendingDeleteBranch(null);
+      setSuccessMessage(t(MessageKey.BranchesDeleted));
+    } catch (error: unknown) {
+      const message = getUserErrorMessage(error, MessageKey.RequestFailed, locale);
+
+      if (error instanceof ApiClientError && error.code === "BRANCH_NOT_EMPTY") {
+        setPendingDeleteBranch(null);
+        setDeleteBlockedMessage(message);
+      }
+
+      setFormError(message);
     }
   };
 
@@ -149,25 +202,118 @@ export const AdminBranchesPage = () => {
                 <div className="grid min-w-0 gap-1">
                   <strong>{branch.name}</strong>
                   <span className="break-words text-[13px] font-bold text-muted-foreground">
-                    {t(MessageKey.Updated)} {new Date(branch.updatedAt).toLocaleString(locale)}
+                    {t(MessageKey.Updated)} {formatDateTime(branch.updatedAt)}
                   </span>
                 </div>
-                <Button
-                  type="button"
-                  className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
-                  onClick={() => {
-                    setFormError(null);
-                    setSuccessMessage(null);
-                    setEditingBranch({ id: branch.id, name: branch.name });
-                  }}
-                >
-                  {t(MessageKey.Edit)}
-                </Button>
+                <div className="flex gap-2 max-[780px]:justify-start">
+                  <Button
+                    type="button"
+                    className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
+                    disabled={isDeleting}
+                    onClick={() => {
+                      setFormError(null);
+                      setDeleteBlockedMessage(null);
+                      setSuccessMessage(null);
+                      setEditingBranch({ id: branch.id, name: branch.name });
+                    }}
+                  >
+                    {t(MessageKey.Edit)}
+                  </Button>
+                  <Button
+                    type="button"
+                    className="mt-0 min-h-9 border border-destructive/35 bg-background text-destructive hover:bg-destructive/10"
+                    disabled={isDeleting}
+                    onClick={() => openDeleteDialog({ id: branch.id, name: branch.name })}
+                  >
+                    {t(MessageKey.Delete)}
+                  </Button>
+                </div>
               </article>
             ))}
           </div>
         ) : null}
       </section>
+
+      {pendingDeleteBranch ? (
+        <div
+          className="fixed inset-0 z-20 grid place-items-center bg-foreground/40 p-5"
+          role="presentation"
+          onMouseDown={() => {
+            if (!isDeleting) {
+              setPendingDeleteBranch(null);
+            }
+          }}
+        >
+          <section
+            aria-labelledby="branch-delete-confirm-title"
+            aria-modal="true"
+            className="grid w-[min(440px,100%)] gap-4 rounded-md border border-border bg-card p-5 text-card-foreground shadow-floating"
+            role="dialog"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div>
+              <p className="mb-1.5 mt-0 text-xs font-bold uppercase text-muted-foreground">{t(MessageKey.Setup)}</p>
+              <h2 className="m-0 text-lg" id="branch-delete-confirm-title">
+                {t(MessageKey.BranchesDeleteConfirmTitle)}
+              </h2>
+            </div>
+            <p className="m-0 leading-normal text-muted-foreground">
+              {t(MessageKey.BranchesDeleteConfirm, { branchName: pendingDeleteBranch.name })}
+            </p>
+            <div className="flex items-center justify-between gap-3 max-[780px]:flex-col max-[780px]:items-stretch">
+              <Button
+                type="button"
+                className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent max-[780px]:w-full"
+                disabled={isDeleting}
+                onClick={() => setPendingDeleteBranch(null)}
+              >
+                {t(MessageKey.Cancel)}
+              </Button>
+              <Button
+                type="button"
+                className="mt-0 min-h-9 bg-destructive text-destructive-foreground hover:bg-destructive/90 max-[780px]:w-full"
+                disabled={isDeleting}
+                onClick={() => void handleDelete()}
+              >
+                {isDeleting ? t(MessageKey.BranchesDeleting) : t(MessageKey.Delete)}
+              </Button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {deleteBlockedMessage ? (
+        <div
+          className="fixed inset-0 z-20 grid place-items-center bg-foreground/40 p-5"
+          role="presentation"
+          onMouseDown={() => setDeleteBlockedMessage(null)}
+        >
+          <section
+            aria-labelledby="branch-delete-blocked-title"
+            aria-modal="true"
+            className="grid w-[min(420px,100%)] gap-4 rounded-md border border-border bg-card p-5 text-card-foreground shadow-floating"
+            role="dialog"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div>
+              <p className="mb-1.5 mt-0 text-xs font-bold uppercase text-muted-foreground">{t(MessageKey.Setup)}</p>
+              <h2 className="m-0 text-lg" id="branch-delete-blocked-title">
+                {t(MessageKey.BranchesDeleteBlockedTitle)}
+              </h2>
+            </div>
+            <StateMessage title={deleteBlockedMessage} tone="error" />
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
+                onClick={() => setDeleteBlockedMessage(null)}
+              >
+                {t(MessageKey.Continue)}
+              </Button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 };

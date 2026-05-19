@@ -2,6 +2,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "../../components/ui/Button";
+import { DateField } from "../../components/ui/DateField";
+import { SelectField } from "../../components/ui/SelectField";
 import { StateMessage } from "../../components/ui/StateMessage";
 import { useAuth } from "../../features/auth/AuthContext";
 import { useBranchesQuery } from "../../features/branches/hooks";
@@ -10,7 +12,7 @@ import { dashboardFilterSchema } from "../../features/dashboard/schemas";
 import type { DashboardFilterValues } from "../../features/dashboard/schemas";
 import { getOrderStatusLabelKey } from "../../features/shared/labels";
 import type { OrderStatus } from "../../lib/api/types";
-import { addDays, toDateInputValue } from "../../lib/format/date";
+import { addDays, formatDate, toDateInputValue } from "../../lib/format/date";
 import { formatCurrency } from "../../lib/format/currency";
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
@@ -81,25 +83,27 @@ export const AdminDashboardPage = () => {
         className="grid grid-cols-[minmax(0,180px)_minmax(0,180px)_minmax(0,280px)_auto] items-end gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel max-[780px]:grid-cols-1 max-[780px]:items-stretch"
         onSubmit={form.handleSubmit(() => void dashboardQuery.refetch())}
       >
-        <label className="grid gap-1.5 text-sm font-semibold text-foreground">
-          {t(MessageKey.DashboardStartDate)}
-          <input className="min-h-[42px] w-full rounded-md border border-input bg-card px-2.5 py-2 text-foreground" type="date" max={filters.endDate} {...form.register("startDate")} />
-        </label>
-        <label className="grid gap-1.5 text-sm font-semibold text-foreground">
-          {t(MessageKey.DashboardEndDate)}
-          <input className="min-h-[42px] w-full rounded-md border border-input bg-card px-2.5 py-2 text-foreground" type="date" min={filters.startDate} {...form.register("endDate")} />
-        </label>
-        <label className="grid gap-1.5 text-sm font-semibold text-foreground">
-          {t(MessageKey.Branch)}
-          <select className="min-h-[42px] w-full rounded-md border border-input bg-card px-2.5 py-2 text-foreground" {...form.register("branchId")}>
-            <option value="ALL">{t(MessageKey.DashboardAllBranches)}</option>
-            {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <DateField
+          label={t(MessageKey.DashboardStartDate)}
+          max={filters.endDate}
+          value={filters.startDate}
+          onValueChange={(value) => form.setValue("startDate", value, { shouldDirty: true, shouldValidate: true })}
+        />
+        <DateField
+          label={t(MessageKey.DashboardEndDate)}
+          min={filters.startDate}
+          value={filters.endDate}
+          onValueChange={(value) => form.setValue("endDate", value, { shouldDirty: true, shouldValidate: true })}
+        />
+        <SelectField
+          label={t(MessageKey.Branch)}
+          options={[
+            { label: t(MessageKey.DashboardAllBranches), value: "ALL" },
+            ...branches.map((branch) => ({ label: branch.name, value: branch.id }))
+          ]}
+          value={filters.branchId}
+          onValueChange={(value) => form.setValue("branchId", value, { shouldDirty: true, shouldValidate: true })}
+        />
         <Button type="submit" className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent">
           {t(MessageKey.Refresh)}
         </Button>
@@ -136,7 +140,7 @@ export const AdminDashboardPage = () => {
               <span className="text-xs font-extrabold uppercase text-muted-foreground">{t(MessageKey.DashboardOrderTotal)}</span>
               <strong className="break-words text-[26px] leading-tight text-primary">{dashboard.orders.total}</strong>
               <small className="self-end text-[13px] leading-normal text-muted-foreground">
-                {dashboard.filters.startDate} - {dashboard.filters.endDate}
+                {formatDate(dashboard.filters.startDate)} - {formatDate(dashboard.filters.endDate)}
               </small>
             </section>
             <section className="grid min-h-[132px] gap-2 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">

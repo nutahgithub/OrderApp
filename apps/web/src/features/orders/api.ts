@@ -8,12 +8,37 @@ import type {
   UpdateOrderStatusRequest
 } from "../../lib/api/types";
 
-export const ordersApi = {
-  list: (token: string, branchId: string, status?: OrderStatus) => {
-    const params = new URLSearchParams({ branchId });
+export type ListOrdersParams = {
+  branchId: string;
+  status?: OrderStatus;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  pageSize?: number;
+};
 
-    if (status) {
-      params.set("status", status);
+export const ordersApi = {
+  list: (token: string, input: ListOrdersParams) => {
+    const params = new URLSearchParams({ branchId: input.branchId });
+
+    if (input.status) {
+      params.set("status", input.status);
+    }
+
+    if (input.startDate) {
+      params.set("startDate", input.startDate);
+    }
+
+    if (input.endDate) {
+      params.set("endDate", input.endDate);
+    }
+
+    if (input.page) {
+      params.set("page", String(input.page));
+    }
+
+    if (input.pageSize) {
+      params.set("pageSize", String(input.pageSize));
     }
 
     return httpRequest<ListOrdersResponse>(`/admin/orders?${params.toString()}`, { token });

@@ -31,10 +31,11 @@ const getTenantId = (request: Request): string => {
 
 export const listOrdersController = async (request: Request, response: Response) => {
   const query = parseQuery(request, listOrdersQuerySchema);
-  const orders = await listTenantOrders(getTenantId(request), query);
+  const result = await listTenantOrders(getTenantId(request), query);
 
   ok(response, {
-    orders
+    orders: result.orders,
+    pagination: result.pagination
   });
 };
 

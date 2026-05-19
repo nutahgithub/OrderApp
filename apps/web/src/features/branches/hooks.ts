@@ -32,3 +32,14 @@ export const useUpdateBranchMutation = (token: string | null) => {
     }
   });
 };
+
+export const useDeleteBranchMutation = (token: string | null) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (branchId: string) => branchesApi.delete(token ?? "", branchId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.branches() });
+    }
+  });
+};

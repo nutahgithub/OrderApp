@@ -2,14 +2,20 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { OrderStatus, UpdateOrderStatusRequest } from "../../lib/api/types";
 import { queryKeys } from "../../lib/query/query-keys";
 import { ordersApi } from "./api";
+import type { ListOrdersParams } from "./api";
 
-export const useOrdersQuery = (token: string | null, branchId: string, status: OrderStatus | "ALL") => {
-  const apiStatus = status === "ALL" ? undefined : status;
+export const useOrdersQuery = (token: string | null, input: Omit<ListOrdersParams, "status"> & { status: OrderStatus | "ALL" }) => {
+  const apiStatus = input.status === "ALL" ? undefined : input.status;
 
   return useQuery({
-    queryKey: queryKeys.orders(branchId, apiStatus),
-    queryFn: () => ordersApi.list(token ?? "", branchId, apiStatus),
-    enabled: Boolean(token && branchId)
+    queryKey: queryKeys.orders(input.branchId, apiStatus, {
+      startDate: input.startDate,
+      endDate: input.endDate,
+      page: input.page,
+      pageSize: input.pageSize
+    }),
+    queryFn: () => ordersApi.list(token ?? "", { ...input, status: apiStatus }),
+    enabled: Boolean(token && input.branchId)
   });
 };
 
@@ -30,7 +36,7 @@ export const useUpdateOrderStatusMutation = (token: string | null, branchId: str
       ordersApi.updateStatus(token ?? "", input.orderId, { status: input.status }),
     onSuccess: (data, input) => {
       queryClient.setQueryData(queryKeys.order(input.orderId), data);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.orders(branchId, apiStatus) });
+      void queryClient.invalidateQueries({ queryKey: ["orders", branchId, apiStatus ?? "ALL"] });
     }
   });
 };
@@ -44,7 +50,7 @@ export const useConfirmPaymentMutation = (token: string | null, branchId: string
       ordersApi.confirmPayment(token ?? "", input.orderId, { amount: input.amount, method: "CASH" }),
     onSuccess: (data, input) => {
       queryClient.setQueryData(queryKeys.order(input.orderId), { order: data.order });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.orders(branchId, apiStatus) });
+      void queryClient.invalidateQueries({ queryKey: ["orders", branchId, apiStatus ?? "ALL"] });
     }
   });
 };

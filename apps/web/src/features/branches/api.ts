@@ -10,5 +10,10 @@ export const branchesApi = {
       method: "PATCH",
       token,
       body: JSON.stringify(body)
+    }),
+  delete: (token: string, branchId: string) =>
+    httpRequest<{ branchId: string }>(`/admin/branches/${branchId}`, {
+      method: "DELETE",
+      token
     })
 };

@@ -162,6 +162,12 @@ export type CreateQrOrderRequest = {
 
 export type ListOrdersResponse = {
   orders: Order[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
 };
 
 export type OrderResponse = {

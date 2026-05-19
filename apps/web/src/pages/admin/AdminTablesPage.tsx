@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
+import { SelectField } from "../../components/ui/SelectField";
 import { StateMessage } from "../../components/ui/StateMessage";
 import { useAuth } from "../../features/auth/AuthContext";
 import { useBranchesQuery } from "../../features/branches/hooks";
@@ -11,6 +12,7 @@ import { tableSchema } from "../../features/tables/schemas";
 import type { TableFormValues } from "../../features/tables/schemas";
 import { getTableStatusLabelKey } from "../../features/shared/labels";
 import type { TableStatus } from "../../lib/api/types";
+import { formatDateTime } from "../../lib/format/date";
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
@@ -139,24 +141,16 @@ export const AdminTablesPage = () => {
       </header>
 
       <section className="grid grid-cols-[minmax(0,320px)_auto] items-end gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel max-[780px]:grid-cols-1 max-[780px]:items-stretch">
-        <label className="grid gap-1.5 text-sm font-semibold text-foreground">
-          {t(MessageKey.Branch)}
-          <select
-            className="min-h-[42px] w-full rounded-md border border-input bg-card px-2.5 py-2 text-foreground"
-            value={selectedBranchId}
-            onChange={(event) => {
+        <SelectField
+          label={t(MessageKey.Branch)}
+          options={branches.map((branch) => ({ label: branch.name, value: branch.id }))}
+          value={selectedBranchId}
+          disabled={branches.length === 0}
+          onValueChange={(value) => {
               resetForm();
-              setSelectedBranchId(event.target.value);
+              setSelectedBranchId(value);
             }}
-            disabled={branches.length === 0}
-          >
-            {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        />
         <Button type="button" className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent" onClick={() => void branchesQuery.refetch()}>
           {t(MessageKey.Refresh)}
         </Button>
@@ -187,19 +181,14 @@ export const AdminTablesPage = () => {
               placeholder={t(MessageKey.TablesNamePlaceholder)}
               {...form.register("name")}
             />
-            <label className="grid gap-1.5 text-sm font-semibold text-foreground">
-              {t(MessageKey.Status)}
-              <select
-                className="min-h-[42px] w-full rounded-md border border-input bg-card px-2.5 py-2 text-foreground"
-                {...form.register("status")}
-              >
-                {tableStatusOptions.map((status) => (
-                  <option key={status} value={status}>
-                    {getTableStatusLabel(status)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SelectField
+              label={t(MessageKey.Status)}
+              options={tableStatusOptions.map((status) => ({ label: getTableStatusLabel(status), value: status }))}
+              value={form.watch("status")}
+              onValueChange={(value) =>
+                form.setValue("status", value as TableStatus, { shouldDirty: true, shouldValidate: true })
+              }
+            />
             <div className="flex gap-2 max-[780px]:justify-start">
               {editingTable ? (
                 <Button type="button" className="bg-muted text-secondary-foreground" disabled={isSubmitting} onClick={resetForm}>
@@ -259,7 +248,7 @@ export const AdminTablesPage = () => {
                     {getTableStatusLabel(table.status)}
                   </span>
                   <span className="break-words text-[13px] font-bold text-muted-foreground">
-                    {t(MessageKey.Updated)} {new Date(table.updatedAt).toLocaleString(locale)}
+                    {t(MessageKey.Updated)} {formatDateTime(table.updatedAt)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-2.5 max-[780px]:flex-col max-[780px]:items-start">

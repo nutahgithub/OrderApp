@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { apiClient } from "../../lib/api/client";
 import type { AdminProfile } from "../../lib/api/types";
+import { authApi } from "./api";
 import { clearAuthSession, readAuthSession, saveAuthSession } from "./auth-storage";
 
 type LoginInput = {
@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState(() => readAuthSession());
 
   const login = useCallback(async (input: LoginInput) => {
-    const response = await apiClient.loginAdmin(input);
+    const response = await authApi.loginAdmin(input);
     const nextSession = {
       token: response.token,
       admin: response.admin
@@ -61,4 +61,3 @@ export const useAuth = (): AuthContextValue => {
 
   return context;
 };
-

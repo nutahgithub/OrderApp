@@ -3,6 +3,7 @@ import type { OrderItem } from "@prisma/client";
 import { findBranchByTenant } from "../repositories/branch.repository.js";
 import { listActiveMenusByTenantAndIds } from "../repositories/menu.repository.js";
 import {
+  countOrdersByTenantBranch,
   createOrderWithItems,
   findOrderByTenant,
   listOrdersByTenantBranch,
@@ -18,6 +19,7 @@ import { emitOrderCreated, emitOrderStatusUpdated } from "../shared/realtime/soc
 import type {
   CreateQrOrderInput,
   ListOrdersInput,
+  ListOrdersResultDto,
   OrderDetailDto,
   OrderDto,
   OrderItemDto,
@@ -26,6 +28,34 @@ import type {
 
 const toMoney = (value: Prisma.Decimal): string => {
   return value.toFixed(2);
+};
+
+const startOfUtcDay = (dateOnlyValue: string): Date => {
+  return new Date(`${dateOnlyValue}T00:00:00.000Z`);
+};
+
+const addUtcDays = (date: Date, days: number): Date => {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+};
+
+const resolveOrderDateRange = (input: ListOrdersInput): { startDate?: Date; endDateExclusive?: Date } => {
+  if (!input.startDate && !input.endDate) {
+    return {};
+  }
+
+  const startDateValue = input.startDate ?? input.endDate;
+  const endDateValue = input.endDate ?? input.startDate;
+
+  if (!startDateValue || !endDateValue) {
+    return {};
+  }
+
+  return {
+    startDate: startOfUtcDay(startDateValue),
+    endDateExclusive: addUtcDays(startOfUtcDay(endDateValue), 1)
+  };
 };
 
 const calculateLineTotal = (item: Pick<OrderItem, "quantity" | "unitPrice">): string => {
@@ -78,16 +108,34 @@ const ensureBranchBelongsToTenant = async (tenantId: string, branchId: string): 
   }
 };
 
-export const listTenantOrders = async (tenantId: string, input: ListOrdersInput): Promise<OrderDto[]> => {
+export const listTenantOrders = async (tenantId: string, input: ListOrdersInput): Promise<ListOrdersResultDto> => {
   await ensureBranchBelongsToTenant(tenantId, input.branchId);
 
-  const orders = await listOrdersByTenantBranch(prisma, {
+  const dateRange = resolveOrderDateRange(input);
+  const query = {
     tenantId,
     branchId: input.branchId,
-    status: input.status
-  });
+    status: input.status,
+    ...dateRange
+  };
+  const [orders, total] = await Promise.all([
+    listOrdersByTenantBranch(prisma, {
+      ...query,
+      skip: (input.page - 1) * input.pageSize,
+      take: input.pageSize
+    }),
+    countOrdersByTenantBranch(prisma, query)
+  ]);
 
-  return orders.map(toOrderDto);
+  return {
+    orders: orders.map(toOrderDto),
+    pagination: {
+      page: input.page,
+      pageSize: input.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / input.pageSize))
+    }
+  };
 };
 
 export const getTenantOrderDetail = async (tenantId: string, orderId: string): Promise<OrderDetailDto> => {
