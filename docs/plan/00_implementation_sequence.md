@@ -321,3 +321,305 @@ Việc cần làm:
 Hoàn thành khi:
 
 - Demo được flow đầy đủ: admin setup branch/table/menu, customer QR order, admin nhận realtime, cập nhật status, thanh toán, xem dashboard.
+
+### Step 12 - Rate Limit Public Order & Upload
+
+Plan cần đọc:
+
+- `steps/12_rate_limit_public_upload.md`
+
+Việc cần làm:
+
+- Them middleware rate limit cho public order va upload.
+- Tra 429/error ro khi vuot nguong.
+- Log route/IP/tenant/requestId neu co.
+
+Hoàn thành khi:
+
+- Spam order/upload bi chan.
+- Flow order/upload hop le van chay.
+
+### Step 13 - Order & Payment Idempotency
+
+Plan cần đọc:
+
+- `steps/13_order_payment_idempotency.md`
+
+Việc cần làm:
+
+- Them idempotency key cho create order.
+- Them idempotency key cho confirm payment.
+- Retry cung key tra ket qua an toan.
+
+Hoàn thành khi:
+
+- Duplicate order/payment do bam nhieu lan duoc chan.
+- Test cover cung key/cung payload va cung key/khac payload.
+
+### Step 14 - Order Status Transition Rules
+
+Plan cần đọc:
+
+- `steps/14_order_status_transition.md`
+
+Việc cần làm:
+
+- Dinh nghia transition hop le cho order.
+- Validate trong service.
+- UI chi hien action hop le.
+
+Hoàn thành khi:
+
+- Khong cap nhat nhay buoc/quay lui sai nghiep vu.
+- Order paid/cancelled duoc bao ve.
+
+### Step 15 - Minimal Admin RBAC
+
+Plan cần đọc:
+
+- `steps/15_admin_rbac_minimal.md`
+
+Việc cần làm:
+
+- Tao middleware/helper require role.
+- Ap dung OWNER/MANAGER/STAFF cho API chinh.
+- UI admin an/disable action theo role.
+
+Hoàn thành khi:
+
+- API tra 403 khi khong du quyen.
+- UI phan anh role dang login.
+
+### Step 16 - Audit Log Core Actions
+
+Plan cần đọc:
+
+- `steps/16_audit_log_core_actions.md`
+
+Việc cần làm:
+
+- Them audit log model/service.
+- Ghi login, CRUD chinh, order status, payment, upload.
+- Dam bao tenant isolation cho audit.
+
+Hoàn thành khi:
+
+- Action quan trong co audit record.
+- Audit khong log password/token.
+
+### Step 17 - Upload Hardening
+
+Plan cần đọc:
+
+- `steps/17_upload_hardening.md`
+
+Việc cần làm:
+
+- Kiem tra magic bytes file anh.
+- Chong path traversal/key khong an toan.
+- Them metadata/cleanup plan neu can.
+
+Hoàn thành khi:
+
+- File gia mao content type bi reject.
+- Anh hop le van upload/hien thi duoc.
+
+### Step 18 - Tenant & Realtime Isolation Tests
+
+Plan cần đọc:
+
+- `steps/18_tenant_realtime_isolation_tests.md`
+
+Việc cần làm:
+
+- Test tenant isolation cho API/repository/service.
+- Test public QR sai context bi reject.
+- Test realtime room join/emit khong leak.
+
+Hoàn thành khi:
+
+- Duong du lieu nhay cam co test isolation.
+- Bug isolation neu phat hien duoc fix.
+
+### Step 19 - Admin User Management
+
+Plan cần đọc:
+
+- `steps/19_admin_user_management.md`
+
+Việc cần làm:
+
+- API/UI list/create/update/disable admin users.
+- Reset password hoac doi password.
+- Gan role cho admin.
+
+Hoàn thành khi:
+
+- Tenant tu quan ly admin co ban.
+- Disabled admin khong login duoc.
+
+### Step 20 - Menu Categories & Availability
+
+Plan cần đọc:
+
+- `steps/20_menu_categories_availability.md`
+
+Việc cần làm:
+
+- Them category va sort order cho menu.
+- Them out-of-stock/availability.
+- Customer QR hien menu theo category.
+
+Hoàn thành khi:
+
+- Mon het hang khong dat duoc.
+- Menu admin/customer ro rang hon.
+
+### Step 21 - Order Notes & Cancel Reason
+
+Plan cần đọc:
+
+- `steps/21_order_notes_cancel_reason.md`
+
+Việc cần làm:
+
+- Them order note va item note neu scope cho phep.
+- Them cancel reason.
+- Hien note/reason trong admin order detail.
+
+Hoàn thành khi:
+
+- Customer/admin thay ghi chu dung.
+- Huy order co ly do va realtime dung.
+
+### Step 22 - Payment Methods & Printable Bill
+
+Plan cần đọc:
+
+- `steps/22_payment_methods_printable_bill.md`
+
+Việc cần làm:
+
+- Them payment method/reference.
+- UI confirm payment co method/reference.
+- Tao bill printable.
+
+Hoàn thành khi:
+
+- Thu ngan ghi nhan method/reference.
+- Bill in duoc tu UI admin.
+
+### Step 23 - Table Status Operations
+
+Plan cần đọc:
+
+- `steps/23_table_status_operations.md`
+
+Việc cần làm:
+
+- Mo rong status ban neu can.
+- Admin thao tac doi/reset status.
+- Customer QR bi chan neu ban disabled.
+
+Hoàn thành khi:
+
+- Staff quan ly trang thai ban co ban.
+- QR/order/payment khong bi hong.
+
+### Step 24 - Dashboard Advanced Metrics
+
+Plan cần đọc:
+
+- `steps/24_dashboard_advanced_metrics.md`
+
+Việc cần làm:
+
+- Them metrics doanh thu theo thoi gian.
+- Top menu items, AOV, order count.
+- So sanh branch.
+
+Hoàn thành khi:
+
+- Dashboard co them insight va filter dung tenant/branch/date.
+
+### Step 25 - Report Export CSV
+
+Plan cần đọc:
+
+- `steps/25_report_export_csv.md`
+
+Việc cần làm:
+
+- Export CSV cho orders/payments/revenue.
+- Dung filter tu report.
+- UI nut export.
+
+Hoàn thành khi:
+
+- CSV mo duoc bang spreadsheet va khong leak tenant khac.
+
+### Step 26 - Tenant Settings Timezone & Currency
+
+Plan cần đọc:
+
+- `steps/26_tenant_settings_timezone_currency.md`
+
+Việc cần làm:
+
+- Them settings timezone/currency.
+- UI update settings.
+- Report/bill/date format theo tenant.
+
+Hoàn thành khi:
+
+- Date range va currency hien dung theo tenant.
+
+### Step 27 - Basic Inventory
+
+Plan cần đọc:
+
+- `steps/27_inventory_basic.md`
+
+Việc cần làm:
+
+- Model/API/UI inventory item.
+- Low-stock threshold va warning.
+- Tenant isolation.
+
+Hoàn thành khi:
+
+- Quan ly thay ton kho co ban.
+- Khong anh huong flow order chinh.
+
+### Step 28 - Reservation & Optional Customer Profile
+
+Plan cần đọc:
+
+- `steps/28_reservation_customer_profile.md`
+
+Việc cần làm:
+
+- Reservation co ban cho admin.
+- Customer name/phone optional trong QR order.
+- Giu privacy toi thieu.
+
+Hoàn thành khi:
+
+- Dat ban co ban hoat dong.
+- QR order van khong bat khach dang ky.
+
+### Step 29 - API Contract, E2E & Observability
+
+Plan cần đọc:
+
+- `steps/29_api_contract_e2e_observability.md`
+
+Việc cần làm:
+
+- OpenAPI/typed contract.
+- Playwright E2E smoke.
+- Alert/runbook/backup-restore docs.
+
+Hoàn thành khi:
+
+- Moi release co smoke E2E va runbook ro rang.

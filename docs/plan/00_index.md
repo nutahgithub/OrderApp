@@ -23,6 +23,24 @@ File implement từng bước:
 9. `steps/09_payment.md` - Payment API + UI.
 10. `steps/10_report_dashboard.md` - Report API + Dashboard UI.
 11. `steps/11_product_polish_release.md` - Polish, QA, release readiness.
+12. `steps/12_rate_limit_public_upload.md` - Rate limit public order va upload.
+13. `steps/13_order_payment_idempotency.md` - Idempotency cho order/payment.
+14. `steps/14_order_status_transition.md` - Rule chuyen trang thai order.
+15. `steps/15_admin_rbac_minimal.md` - RBAC admin toi thieu.
+16. `steps/16_audit_log_core_actions.md` - Audit log hanh dong quan trong.
+17. `steps/17_upload_hardening.md` - Upload hardening cho anh menu.
+18. `steps/18_tenant_realtime_isolation_tests.md` - Test tenant va realtime isolation.
+19. `steps/19_admin_user_management.md` - Quan ly admin users.
+20. `steps/20_menu_categories_availability.md` - Menu categories va availability.
+21. `steps/21_order_notes_cancel_reason.md` - Order notes va cancel reason.
+22. `steps/22_payment_methods_printable_bill.md` - Payment methods va printable bill.
+23. `steps/23_table_status_operations.md` - Van hanh trang thai ban.
+24. `steps/24_dashboard_advanced_metrics.md` - Dashboard metrics nang cao.
+25. `steps/25_report_export_csv.md` - Export report CSV.
+26. `steps/26_tenant_settings_timezone_currency.md` - Tenant timezone va currency.
+27. `steps/27_inventory_basic.md` - Inventory co ban.
+28. `steps/28_reservation_customer_profile.md` - Reservation va customer profile tuy chon.
+29. `steps/29_api_contract_e2e_observability.md` - API contract, E2E, observability.
 
 File plan nền tảng:
 
