@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { RequestHandler } from "express";
 import { logger } from "./logger.js";
+import { recordHttpRequest } from "../observability/metrics.js";
 
 const shouldSkipRequestLog = (path: string): boolean => {
   return path === "/health";
@@ -25,6 +26,13 @@ export const requestLogger: RequestHandler = (request, response, next) => {
 
     const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
     const statusCode = response.statusCode;
+    recordHttpRequest({
+      method: request.method,
+      path: request.originalUrl,
+      statusCode,
+      durationMs
+    });
+
     const context = {
       requestId: request.requestId,
       method: request.method,

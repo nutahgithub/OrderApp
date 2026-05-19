@@ -14,6 +14,7 @@ import { findTableQrEntry } from "../repositories/table.repository.js";
 import { AppError } from "../shared/errors/app-error.js";
 import { ErrorCode } from "../shared/errors/error-catalog.js";
 import { logger } from "../shared/logger/logger.js";
+import { recordOrderCreated } from "../shared/observability/metrics.js";
 import { prisma } from "../shared/prisma/client.js";
 import { emitOrderCreated, emitOrderStatusUpdated } from "../shared/realtime/socket.js";
 import type {
@@ -208,6 +209,7 @@ export const createQrOrder = async (
     tableId,
     orderId: dto.id
   });
+  recordOrderCreated();
   emitOrderCreated({
     order: toOrderDto(order)
   });

@@ -39,6 +39,8 @@ export const CustomerQrEntryPage = () => {
     | { status: "error"; message: string }
   >({ status: "idle" });
   const [cart, setCart] = useState<Cart>({});
+  const [qrReloadKey, setQrReloadKey] = useState(0);
+  const [menuReloadKey, setMenuReloadKey] = useState(0);
   const [orderState, setOrderState] = useState<
     | { status: "idle" }
     | { status: "submitting" }
@@ -80,7 +82,7 @@ export const CustomerQrEntryPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [branchId, locale, t, tableId, tenantId]);
+  }, [branchId, locale, qrReloadKey, t, tableId, tenantId]);
 
   useEffect(() => {
     if (!tenantId || !branchId || !tableId || qrEntryState.status !== "success") {
@@ -116,7 +118,7 @@ export const CustomerQrEntryPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [branchId, locale, qrEntryState, t, tableId, tenantId]);
+  }, [branchId, locale, menuReloadKey, qrEntryState, t, tableId, tenantId]);
 
   useEffect(() => {
     if (!tenantId || !branchId || !tableId || !trackedOrderId) {
@@ -172,7 +174,18 @@ export const CustomerQrEntryPage = () => {
   }
 
   if (qrEntryState.status === "error") {
-    return <StateMessage title={t(MessageKey.QrInvalidTitle)} description={qrEntryState.message} tone="error" />;
+    return (
+      <StateMessage
+        title={t(MessageKey.QrInvalidTitle)}
+        description={qrEntryState.message}
+        tone="error"
+        action={
+          <Button type="button" className="mt-0 min-h-9" onClick={() => setQrReloadKey((currentKey) => currentKey + 1)}>
+            {t(MessageKey.Refresh)}
+          </Button>
+        }
+      />
+    );
   }
 
   const { qrEntry } = qrEntryState;
@@ -283,7 +296,20 @@ export const CustomerQrEntryPage = () => {
         <StateMessage title={t(MessageKey.QrLoadingMenuTitle)} description={t(MessageKey.QrLoadingMenuDescription)} />
       ) : null}
       {!isDisabled && menusState.status === "error" ? (
-        <StateMessage title={t(MessageKey.QrUnableToLoadMenu)} description={menusState.message} tone="error" />
+        <StateMessage
+          title={t(MessageKey.QrUnableToLoadMenu)}
+          description={menusState.message}
+          tone="error"
+          action={
+            <Button
+              type="button"
+              className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
+              onClick={() => setMenuReloadKey((currentKey) => currentKey + 1)}
+            >
+              {t(MessageKey.Refresh)}
+            </Button>
+          }
+        />
       ) : null}
       {!isDisabled && menusState.status === "success" && menus.length === 0 ? (
         <StateMessage title={t(MessageKey.QrNoDishesTitle)} description={t(MessageKey.QrNoDishesDescription)} />
@@ -296,7 +322,7 @@ export const CustomerQrEntryPage = () => {
           </div>
           <div className="mt-[18px] grid gap-2.5">
             {menus.map((menu) => (
-              <article className="flex items-center justify-start gap-3.5 border-b border-border py-3 max-[780px]:items-start" key={menu.id}>
+              <article className="grid grid-cols-[64px_minmax(0,1fr)_auto_auto] items-center gap-3.5 border-b border-border py-3 max-[780px]:grid-cols-[64px_minmax(0,1fr)] max-[780px]:items-start" key={menu.id}>
                 <div className="grid h-16 w-16 flex-none place-items-center overflow-hidden rounded-md border border-border bg-muted font-extrabold text-muted-foreground" aria-label={menu.imageUrl ? menu.name : t(MessageKey.MenusNoImage)}>
                   {menu.imageUrl ? <img className="h-full w-full object-cover" src={menu.imageUrl} alt={menu.name} loading="lazy" /> : <span>{menu.name[0]}</span>}
                 </div>
@@ -304,8 +330,8 @@ export const CustomerQrEntryPage = () => {
                   <strong>{menu.name}</strong>
                   <span className="break-words text-[13px] text-muted-foreground">{t(MessageKey.QrAvailableNow)}</span>
                 </div>
-                <b className="ml-auto flex-none text-primary max-[780px]:ml-0">{formatCurrency(menu.price)}</b>
-                <div className="inline-grid flex-none grid-cols-[42px_36px_42px] items-center justify-end gap-1.5 max-[780px]:w-full max-[780px]:justify-start">
+                <b className="whitespace-nowrap text-primary max-[780px]:col-start-2 max-[780px]:whitespace-normal">{formatCurrency(menu.price)}</b>
+                <div className="inline-grid flex-none grid-cols-[42px_36px_42px] items-center justify-end gap-1.5 max-[780px]:col-span-2 max-[780px]:w-full max-[780px]:justify-start">
                   <Button
                     type="button"
                     className="min-h-[42px] w-[42px] touch-manipulation bg-secondary p-0 text-base text-secondary-foreground hover:bg-accent"

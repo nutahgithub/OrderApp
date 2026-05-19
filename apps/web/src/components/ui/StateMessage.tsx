@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { AlertCircle, CheckCircle2, Info } from "lucide-react";
 import { cn } from "../../lib/utils/cn";
 
@@ -5,6 +6,7 @@ type StateMessageProps = {
   title: string;
   description?: string;
   tone?: "neutral" | "error" | "success";
+  action?: ReactNode;
 };
 
 const toneClassName: Record<NonNullable<StateMessageProps["tone"]>, string> = {
@@ -19,15 +21,16 @@ const iconByTone = {
   success: CheckCircle2
 };
 
-export const StateMessage = ({ title, description, tone = "neutral" }: StateMessageProps) => {
+export const StateMessage = ({ title, description, tone = "neutral", action }: StateMessageProps) => {
   const Icon = iconByTone[tone];
 
   return (
-    <div className={cn("flex gap-3 rounded-md border p-3 shadow-sm", toneClassName[tone])}>
+    <div className={cn("flex gap-3 rounded-md border p-3 shadow-sm max-[780px]:items-start", toneClassName[tone])}>
       <Icon className="mt-0.5 h-4 w-4 flex-none" aria-hidden="true" />
-      <div className="grid gap-1">
+      <div className="grid min-w-0 flex-1 gap-2">
         <strong>{title}</strong>
-        {description ? <span className="text-sm opacity-80">{description}</span> : null}
+        {description ? <span className="break-words text-sm leading-normal opacity-80">{description}</span> : null}
+        {action ? <div className="pt-1">{action}</div> : null}
       </div>
     </div>
   );
