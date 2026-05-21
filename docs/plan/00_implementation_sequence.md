@@ -25,7 +25,9 @@ Khi implement, hãy prompt theo từng file trong danh sách này. Chỉ chuyể
 8. `docs/plan/steps/08_realtime_order_updates.md`
 9. `docs/plan/steps/09_payment.md`
 10. `docs/plan/steps/10_report_dashboard.md`
-11. `docs/plan/steps/11_product_polish_release.md`
+11. `docs/plan/steps/10.1_frontend_ui_refactor.md`
+12. `docs/plan/steps/10.2_frontend_ui_ux_polish.md`
+13. `docs/plan/steps/11_product_polish_release.md`
 
 ## Prompt Mẫu
 
@@ -301,6 +303,40 @@ Hoàn thành khi:
 
 - Admin xem dashboard bằng dữ liệu thật từ order/payment.
 - Filter hoạt động đúng theo tenant.
+
+### Step 10.1 - Frontend UI Refactor Foundation
+
+Plan can doc:
+
+- `steps/10.1_frontend_ui_refactor.md`
+
+Viec can lam:
+
+- Chuan hoa frontend foundation, theme token, shared UI components.
+- Chuan hoa data fetching/form validation/realtime hooks neu nam trong scope.
+- Giam CSS custom va lap code UI trong page.
+
+Hoan thanh khi:
+
+- Frontend co nen component va state management on dinh de polish tiep.
+- Cac flow admin/customer hien co van chay.
+
+### Step 10.2 - Frontend UI/UX Polish
+
+Plan can doc:
+
+- `steps/10.2_frontend_ui_ux_polish.md`
+
+Viec can lam:
+
+- Polish admin shell, Dashboard, Orders, Branches/Tables/Menus va Customer QR.
+- Nang visual hierarchy, mobile responsiveness, empty/loading/error states.
+- Giu nguyen API contract va business flow hien co.
+
+Hoan thanh khi:
+
+- UI admin/customer dep hon, de scan, de thao tac.
+- Cac smoke test flow chinh van pass truoc khi sang Step 11.
 
 ### Step 11 - Product Polish & Release Readiness
 

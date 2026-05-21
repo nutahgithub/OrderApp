@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Clock3 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { DateField } from "../../components/ui/DateField";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { Panel } from "../../components/ui/Panel";
 import { SelectField } from "../../components/ui/SelectField";
 import { StateMessage } from "../../components/ui/StateMessage";
+import { StatusPill } from "../../components/ui/StatusPill";
+import { Toolbar } from "../../components/ui/Toolbar";
 import { useAuth } from "../../features/auth/AuthContext";
 import { branchesApi } from "../../features/branches/api";
+import { OrderActionPanel } from "../../features/orders/components/OrderActionPanel";
+import { PaymentConfirmDialog } from "../../features/orders/components/PaymentConfirmDialog";
 import { ordersApi } from "../../features/orders/api";
 import { useConfirmPaymentMutation, useUpdateOrderStatusMutation } from "../../features/orders/hooks";
 import type { Branch, Order, OrderDetail, OrderStatus, UpdateOrderStatusRequest } from "../../lib/api/types";
@@ -13,11 +20,7 @@ import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
 import { createRealtimeSocket, RealtimeEvent } from "../../lib/realtime/socket";
-import {
-  getOrderStatusClassName,
-  getRealtimeConnectionClassName,
-  statusPillClassName
-} from "../../lib/theme/status-colors";
+import { getOrderStatusClassName, getRealtimeConnectionClassName } from "../../lib/theme/status-colors";
 import { cn } from "../../lib/utils/cn";
 
 type BranchesState =
@@ -122,18 +125,6 @@ export const AdminOrdersPage = () => {
     };
 
     return labelByStatus[status];
-  };
-
-  const getOrderActionButtonClass = (status: UpdateOrderStatusRequest["status"]): string => {
-    const classByStatus: Record<UpdateOrderStatusRequest["status"], string> = {
-      CONFIRMED: "mt-0 min-h-[42px] bg-info text-white",
-      PREPARING: "mt-0 min-h-[42px] bg-warning text-yellow-950",
-      READY: "mt-0 min-h-[42px] bg-success text-white",
-      SERVED: "mt-0 min-h-[42px] bg-slate-200 text-slate-800",
-      CANCELLED: "mt-0 min-h-[42px] bg-destructive text-destructive-foreground"
-    };
-
-    return classByStatus[status];
   };
 
   const shouldShowOrder = useCallback(
@@ -388,15 +379,13 @@ export const AdminOrdersPage = () => {
 
   return (
     <section className="grid gap-5">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <p className="mb-1.5 mt-0 text-xs font-bold uppercase text-muted-foreground">{t(MessageKey.OrdersEyebrow)}</p>
-          <h1 className="m-0 text-[28px] leading-tight">{t(MessageKey.OrdersTitle)}</h1>
-          <p className="mb-0 mt-2 text-muted-foreground">{t(MessageKey.OrdersSubtitle)}</p>
-        </div>
-      </header>
+      <PageHeader
+        eyebrow={t(MessageKey.OrdersEyebrow)}
+        title={t(MessageKey.OrdersTitle)}
+        subtitle={t(MessageKey.OrdersSubtitle)}
+      />
 
-      <section className="grid grid-cols-[minmax(0,260px)_minmax(0,190px)_minmax(0,180px)_auto_auto] items-end gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel max-[780px]:grid-cols-1 max-[780px]:items-stretch">
+      <Toolbar className="grid-cols-[minmax(0,260px)_minmax(0,190px)_minmax(0,180px)_auto_auto]">
         <SelectField
           label={t(MessageKey.Branch)}
           options={branches.map((branch) => ({ label: branch.name, value: branch.id }))}
@@ -446,7 +435,7 @@ export const AdminOrdersPage = () => {
           {realtimeState === "connecting" ? t(MessageKey.RealtimeConnecting) : null}
           {realtimeState === "fallback" ? t(MessageKey.RealtimeFallback) : null}
         </span>
-      </section>
+      </Toolbar>
 
       {branchesState.status === "loading" ? <StateMessage title={t(MessageKey.OrdersLoadingBranches)} /> : null}
       {branchesState.status === "error" ? (
@@ -460,8 +449,8 @@ export const AdminOrdersPage = () => {
       ) : null}
 
       {selectedBranch ? (
-        <section className="grid grid-cols-[minmax(280px,0.85fr)_minmax(0,1.15fr)] items-start gap-4 max-[780px]:grid-cols-1">
-          <section className="rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
+        <section className="grid grid-cols-[minmax(320px,0.82fr)_minmax(0,1.18fr)] items-start gap-4 max-[980px]:grid-cols-1">
+          <Panel className="max-[980px]:max-h-none min-[981px]:max-h-[calc(100vh-220px)] min-[981px]:overflow-auto">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="m-0 text-base">{t(MessageKey.OrdersListTitle)}</h2>
@@ -497,11 +486,14 @@ export const AdminOrdersPage = () => {
                   >
                     <span className="grid min-w-0 gap-1">
                       <strong>{order.tableName}</strong>
-                      <small className="break-words text-[13px] text-muted-foreground">{formatDateTime(order.createdAt)}</small>
+                      <small className="inline-flex items-center gap-1.5 break-words text-[13px] text-muted-foreground">
+                        <Clock3 className="h-3.5 w-3.5 flex-none" aria-hidden="true" />
+                        {formatDateTime(order.createdAt)}
+                      </small>
                     </span>
-                    <span className={cn(statusPillClassName, getOrderStatusClassName(order.status))}>
+                    <StatusPill className={getOrderStatusClassName(order.status)}>
                       {getOrderStatusLabel(order.status)}
-                    </span>
+                    </StatusPill>
                     <b className="text-primary">{formatCurrency(order.total)}</b>
                   </button>
                 ))}
@@ -539,9 +531,9 @@ export const AdminOrdersPage = () => {
                 </Button>
               </div>
             ) : null}
-          </section>
+          </Panel>
 
-          <section className="grid gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
+          <Panel className="grid gap-3 min-[981px]:sticky min-[981px]:top-7">
             {orderDetailState.status === "idle" ? <StateMessage title={t(MessageKey.OrdersSelectOrder)} /> : null}
             {orderDetailState.status === "loading" ? <StateMessage title={t(MessageKey.OrdersLoadingDetail)} /> : null}
             {orderDetailState.status === "error" ? (
@@ -549,59 +541,18 @@ export const AdminOrdersPage = () => {
             ) : null}
             {orderDetailState.status === "success" ? (
               <>
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="m-0 text-base">{t(MessageKey.OrdersDetailTitle, { tableName: orderDetailState.order.tableName })}</h2>
-                    <p className="mt-1 text-[13px] leading-normal text-muted-foreground">
-                      {orderDetailState.order.branchName} &middot;{" "}
-                      {formatDateTime(orderDetailState.order.createdAt)}
-                    </p>
-                  </div>
-                  <span className={cn(statusPillClassName, getOrderStatusClassName(orderDetailState.order.status))}>
-                    {getOrderStatusLabel(orderDetailState.order.status)}
-                  </span>
-                </div>
-
-                <div className="grid gap-3">
-                  {orderDetailState.order.items.map((item) => (
-                    <div className="flex items-center justify-between gap-3 border-b border-border py-3" key={item.id}>
-                      <div className="grid min-w-0 gap-1">
-                        <strong>{item.menuName}</strong>
-                        <span className="break-words text-[13px] text-muted-foreground">
-                          {item.quantity} &times; {formatCurrency(item.unitPrice)}
-                        </span>
-                      </div>
-                      <b className="text-primary">{formatCurrency(item.lineTotal)}</b>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex items-center justify-between gap-3 py-3 font-extrabold">
-                  <span>{t(MessageKey.OrdersTotalAmount)}</span>
-                  <strong className="text-primary">{formatCurrency(orderDetailState.order.total)}</strong>
-                </div>
-
-                {orderDetailState.order.status !== "PAID" && orderDetailState.order.status !== "CANCELLED" ? (
-                  <div className="flex items-center justify-between gap-3 rounded-md border border-success/50 bg-success/10 p-3 max-[780px]:flex-col max-[780px]:items-start">
-                    <div className="grid min-w-0 gap-1">
-                      <span className="text-xs font-extrabold uppercase text-muted-foreground">{t(MessageKey.NavPayments)}</span>
-                      <strong className="break-words text-primary">{t(MessageKey.OrdersPaymentMethodCash)}</strong>
-                    </div>
-                    <Button
-                      type="button"
-                      className="mt-0 min-h-11 flex-none bg-primary px-[18px] text-primary-foreground max-[780px]:w-full"
-                      disabled={confirmingPayment || updatingStatus !== null}
-                      onClick={() => {
-                        setSuccessMessage(null);
-                        setUpdateError(null);
-                        setPendingPaymentOrder(orderDetailState.order);
-                      }}
-                    >
-                      {confirmingPayment ? t(MessageKey.OrdersConfirmingPayment) : t(MessageKey.OrdersConfirmPayment)}
-                    </Button>
-                  </div>
-                ) : null}
-
+                <OrderActionPanel
+                  order={orderDetailState.order}
+                  statusOptions={operationStatusOptions}
+                  updatingStatus={updatingStatus}
+                  confirmingPayment={confirmingPayment}
+                  onStatusUpdate={(status) => void handleStatusUpdate(status)}
+                  onRequestPayment={() => {
+                    setSuccessMessage(null);
+                    setUpdateError(null);
+                    setPendingPaymentOrder(orderDetailState.order);
+                  }}
+                />
                 {orderDetailState.order.status === "PAID" ? (
                   <StateMessage title={t(MessageKey.OrdersPaymentUnavailablePaid)} tone="success" />
                 ) : null}
@@ -609,106 +560,24 @@ export const AdminOrdersPage = () => {
                   <StateMessage title={t(MessageKey.OrdersPaymentUnavailableCancelled)} />
                 ) : null}
 
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(118px,1fr))] gap-3">
-                  {operationStatusOptions.map((status) => (
-                    <Button
-                      type="button"
-                      className={getOrderActionButtonClass(status)}
-                      disabled={
-                        confirmingPayment ||
-                        updatingStatus !== null ||
-                        orderDetailState.order.status === status ||
-                        orderDetailState.order.status === "PAID"
-                      }
-                      key={status}
-                      onClick={() => void handleStatusUpdate(status)}
-                    >
-                      {updatingStatus === status ? t(MessageKey.Saving) : getOrderStatusLabel(status)}
-                    </Button>
-                  ))}
-                </div>
                 {successMessage ? <StateMessage title={successMessage} tone="success" /> : null}
                 {updateError ? (
                   <StateMessage title={t(actionErrorTitle)} description={updateError} tone="error" />
                 ) : null}
               </>
             ) : null}
-          </section>
+          </Panel>
         </section>
       ) : null}
 
       {pendingPaymentOrder ? (
-        <div
-          className="fixed inset-0 z-20 grid place-items-center bg-foreground/40 p-5"
-          role="presentation"
-          onMouseDown={() => {
-            if (!confirmingPayment) {
-              setPendingPaymentOrder(null);
-            }
-          }}
-        >
-          <section
-            aria-labelledby="payment-confirm-title"
-            aria-modal="true"
-            className="grid w-[min(460px,100%)] gap-4 rounded-md border border-border bg-card p-5 shadow-floating"
-            role="dialog"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between gap-3 max-[780px]:flex-col max-[780px]:items-stretch">
-              <div>
-                <p className="mb-1.5 mt-0 text-xs font-bold uppercase text-muted-foreground">{t(MessageKey.NavPayments)}</p>
-                <h2 className="m-0 text-lg" id="payment-confirm-title">{t(MessageKey.OrdersPaymentModalTitle)}</h2>
-              </div>
-              <span className={cn(statusPillClassName, getOrderStatusClassName(pendingPaymentOrder.status))}>
-                {getOrderStatusLabel(pendingPaymentOrder.status)}
-              </span>
-            </div>
-
-            <p className="m-0 leading-normal text-muted-foreground">
-              {t(MessageKey.OrdersPaymentModalDescription, {
-                tableName: pendingPaymentOrder.tableName
-              })}
-            </p>
-
-            <div className="grid gap-2.5 rounded-md border border-border bg-muted/45 p-3">
-              <div className="flex items-center justify-between gap-3 max-[780px]:flex-col max-[780px]:items-stretch">
-                <span className="text-[13px] font-bold text-muted-foreground">{t(MessageKey.Branch)}</span>
-                <strong className="break-words text-right text-secondary-foreground max-[780px]:text-left">{pendingPaymentOrder.branchName}</strong>
-              </div>
-              <div className="flex items-center justify-between gap-3 max-[780px]:flex-col max-[780px]:items-stretch">
-                <span className="text-[13px] font-bold text-muted-foreground">{t(MessageKey.OrdersPaymentMethod)}</span>
-                <strong className="break-words text-right text-secondary-foreground max-[780px]:text-left">{t(MessageKey.OrdersPaymentMethodCash)}</strong>
-              </div>
-              <div className="flex items-center justify-between gap-3 border-t border-border pt-2.5 max-[780px]:flex-col max-[780px]:items-stretch">
-                <span className="text-[13px] font-bold text-muted-foreground">{t(MessageKey.OrdersTotalAmount)}</span>
-                <strong className="break-words text-right text-xl text-primary max-[780px]:text-left">{formatCurrency(pendingPaymentOrder.total)}</strong>
-              </div>
-            </div>
-
-            {updateError ? (
-              <StateMessage title={t(actionErrorTitle)} description={updateError} tone="error" />
-            ) : null}
-
-            <div className="flex items-center justify-between gap-3 max-[780px]:flex-col max-[780px]:items-stretch">
-              <Button
-                type="button"
-                className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent max-[780px]:w-full"
-                disabled={confirmingPayment}
-                onClick={() => setPendingPaymentOrder(null)}
-              >
-                {t(MessageKey.Cancel)}
-              </Button>
-              <Button
-                type="button"
-                className="mt-0 min-h-9 max-[780px]:w-full"
-                disabled={confirmingPayment}
-                onClick={() => void handleConfirmPayment()}
-              >
-                {confirmingPayment ? t(MessageKey.OrdersConfirmingPayment) : t(MessageKey.OrdersConfirmPayment)}
-              </Button>
-            </div>
-          </section>
-        </div>
+        <PaymentConfirmDialog
+          order={pendingPaymentOrder}
+          isSubmitting={confirmingPayment}
+          error={updateError}
+          onCancel={() => setPendingPaymentOrder(null)}
+          onConfirm={() => void handleConfirmPayment()}
+        />
       ) : null}
 
     </section>

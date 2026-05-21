@@ -5,6 +5,7 @@ export type MenuDto = {
   price: string;
   imageUrl: string | null;
   isActive: boolean;
+  canDelete: boolean;
   createdAt: string;
   updatedAt: string;
 };

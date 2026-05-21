@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   createMenuController,
+  deleteMenuController,
   listMenusController,
   listPublicQrMenusController,
   updateMenuController
@@ -14,6 +15,7 @@ menuRouter.use(requireAdminAuth);
 menuRouter.get("/", asyncHandler(listMenusController));
 menuRouter.post("/", asyncHandler(createMenuController));
 menuRouter.patch("/:menuId", asyncHandler(updateMenuController));
+menuRouter.delete("/:menuId", asyncHandler(deleteMenuController));
 
 export const publicMenuRouter = Router();
 

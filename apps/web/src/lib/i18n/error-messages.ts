@@ -9,6 +9,7 @@ const errorCodeToMessageKey: Record<string, MessageKey> = {
   INVALID_CREDENTIALS: MessageKey.AuthInvalidCredentials,
   INVALID_UPLOAD: MessageKey.MenusImageInvalid,
   INVALID_TOKEN: MessageKey.AuthSessionExpired,
+  MENU_IN_USE: MessageKey.MenusDeleteBlocked,
   MENU_NOT_FOUND: MessageKey.ResourceNotFound,
   MISSING_AUTH_CONTEXT: MessageKey.AuthSessionExpired,
   MISSING_TOKEN: MessageKey.AuthSessionExpired,
@@ -23,7 +24,7 @@ const errorCodeToMessageKey: Record<string, MessageKey> = {
 
 export const getUserErrorMessage = (
   error: unknown,
-  fallbackKey = MessageKey.RequestFailed,
+  fallbackKey: MessageKey = MessageKey.RequestFailed,
   locale?: Locale
 ): string => {
   if (error instanceof ApiClientError) {

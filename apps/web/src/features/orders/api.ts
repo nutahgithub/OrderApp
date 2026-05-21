@@ -5,6 +5,7 @@ import type {
   OrderResponse,
   OrderStatus,
   PaymentResponse,
+  UpdateOrderItemsRequest,
   UpdateOrderStatusRequest
 } from "../../lib/api/types";
 
@@ -44,6 +45,8 @@ export const ordersApi = {
     return httpRequest<ListOrdersResponse>(`/admin/orders?${params.toString()}`, { token });
   },
   get: (token: string, orderId: string) => httpRequest<OrderResponse>(`/admin/orders/${orderId}`, { token }),
+  updateItems: (token: string, orderId: string, body: UpdateOrderItemsRequest) =>
+    httpRequest<OrderResponse>(`/admin/orders/${orderId}/items`, { method: "PATCH", token, body: JSON.stringify(body) }),
   updateStatus: (token: string, orderId: string, body: UpdateOrderStatusRequest) =>
     httpRequest<OrderResponse>(`/admin/orders/${orderId}/status`, { method: "PATCH", token, body: JSON.stringify(body) }),
   confirmPayment: (token: string, orderId: string, body: ConfirmPaymentRequest) =>

@@ -33,6 +33,17 @@ export const useUpdateMenuMutation = (token: string | null) => {
   });
 };
 
+export const useDeleteMenuMutation = (token: string | null) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: menusApi.delete.bind(null, token ?? ""),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.menus() });
+    }
+  });
+};
+
 export const useUploadMenuImageMutation = (token: string | null) => {
   return useMutation({
     mutationFn: menusApi.uploadImage.bind(null, token ?? "")

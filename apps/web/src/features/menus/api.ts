@@ -1,6 +1,7 @@
 import { httpRequest } from "../../lib/api/http";
 import type {
   CreateMenuRequest,
+  DeleteMenuResponse,
   ListMenusResponse,
   MenuFormRequest,
   MenuResponse,
@@ -14,6 +15,7 @@ export const menusApi = {
     httpRequest<MenuResponse>("/admin/menus", { method: "POST", token, body: JSON.stringify(body) }),
   update: (token: string, menuId: string, body: MenuFormRequest) =>
     httpRequest<MenuResponse>(`/admin/menus/${menuId}`, { method: "PATCH", token, body: JSON.stringify(body) }),
+  delete: (token: string, menuId: string) => httpRequest<DeleteMenuResponse>(`/admin/menus/${menuId}`, { method: "DELETE", token }),
   uploadImage: (token: string, body: UploadImageRequest) =>
     httpRequest<UploadImageResponse>("/admin/uploads/menu-images", {
       method: "POST",

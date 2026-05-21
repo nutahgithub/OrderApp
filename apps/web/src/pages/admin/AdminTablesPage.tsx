@@ -3,8 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { Panel } from "../../components/ui/Panel";
 import { SelectField } from "../../components/ui/SelectField";
 import { StateMessage } from "../../components/ui/StateMessage";
+import { StatusPill } from "../../components/ui/StatusPill";
+import { Toolbar } from "../../components/ui/Toolbar";
 import { useAuth } from "../../features/auth/AuthContext";
 import { useBranchesQuery } from "../../features/branches/hooks";
 import { useCreateTableMutation, useTablesQuery, useUpdateTableMutation } from "../../features/tables/hooks";
@@ -16,8 +20,7 @@ import { formatDateTime } from "../../lib/format/date";
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
-import { getTableStatusClassName, statusPillClassName } from "../../lib/theme/status-colors";
-import { cn } from "../../lib/utils/cn";
+import { getTableStatusClassName } from "../../lib/theme/status-colors";
 
 type EditingTable = {
   id: string;
@@ -132,15 +135,9 @@ export const AdminTablesPage = () => {
 
   return (
     <section className="grid gap-5">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <p className="mb-1.5 mt-0 text-xs font-bold uppercase text-muted-foreground">{t(MessageKey.Setup)}</p>
-          <h1 className="m-0 text-[28px] leading-tight">{t(MessageKey.TablesTitle)}</h1>
-          <p className="mb-0 mt-2 text-muted-foreground">{t(MessageKey.TablesSubtitle)}</p>
-        </div>
-      </header>
+      <PageHeader eyebrow={t(MessageKey.Setup)} title={t(MessageKey.TablesTitle)} subtitle={t(MessageKey.TablesSubtitle)} />
 
-      <section className="grid grid-cols-[minmax(0,320px)_auto] items-end gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel max-[780px]:grid-cols-1 max-[780px]:items-stretch">
+      <Toolbar className="grid-cols-[minmax(0,320px)_auto]">
         <SelectField
           label={t(MessageKey.Branch)}
           options={branches.map((branch) => ({ label: branch.name, value: branch.id }))}
@@ -154,7 +151,7 @@ export const AdminTablesPage = () => {
         <Button type="button" className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent" onClick={() => void branchesQuery.refetch()}>
           {t(MessageKey.Refresh)}
         </Button>
-      </section>
+      </Toolbar>
 
       {branchesQuery.isLoading ? <StateMessage title={t(MessageKey.TablesLoadingBranches)} /> : null}
       {branchesError ? (
@@ -167,51 +164,52 @@ export const AdminTablesPage = () => {
         />
       ) : null}
 
-      {selectedBranch ? (
-        <section className="grid gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
-          <h2 className="m-0 text-base">
-            {editingTable
-              ? t(MessageKey.TablesEditTitle)
-              : t(MessageKey.TablesCreateTitle, { branchName: selectedBranch.name })}
-          </h2>
-          <p className="-mt-1 text-[13px] leading-normal text-muted-foreground">{t(MessageKey.TablesHint)}</p>
-          <form className="grid grid-cols-[minmax(0,1fr)_180px_auto] items-end gap-3 max-[780px]:grid-cols-1 max-[780px]:items-stretch" onSubmit={form.handleSubmit(handleSubmit)}>
-            <Input
-              label={t(MessageKey.TablesNameLabel)}
-              placeholder={t(MessageKey.TablesNamePlaceholder)}
-              {...form.register("name")}
-            />
-            <SelectField
-              label={t(MessageKey.Status)}
-              options={tableStatusOptions.map((status) => ({ label: getTableStatusLabel(status), value: status }))}
-              value={form.watch("status")}
-              onValueChange={(value) =>
-                form.setValue("status", value as TableStatus, { shouldDirty: true, shouldValidate: true })
-              }
-            />
-            <div className="flex gap-2 max-[780px]:justify-start">
-              {editingTable ? (
-                <Button type="button" className="bg-muted text-secondary-foreground" disabled={isSubmitting} onClick={resetForm}>
-                  {t(MessageKey.Cancel)}
+      <section className="grid grid-cols-[minmax(300px,0.78fr)_minmax(0,1.22fr)] items-start gap-4 max-[980px]:grid-cols-1">
+        {selectedBranch ? (
+          <Panel className="grid gap-3 min-[981px]:sticky min-[981px]:top-7">
+            <h2 className="m-0 text-base">
+              {editingTable
+                ? t(MessageKey.TablesEditTitle)
+                : t(MessageKey.TablesCreateTitle, { branchName: selectedBranch.name })}
+            </h2>
+            <p className="-mt-1 text-[13px] leading-normal text-muted-foreground">{t(MessageKey.TablesHint)}</p>
+            <form className="grid gap-3" onSubmit={form.handleSubmit(handleSubmit)}>
+              <Input
+                label={t(MessageKey.TablesNameLabel)}
+                placeholder={t(MessageKey.TablesNamePlaceholder)}
+                {...form.register("name")}
+              />
+              <SelectField
+                label={t(MessageKey.Status)}
+                options={tableStatusOptions.map((status) => ({ label: getTableStatusLabel(status), value: status }))}
+                value={form.watch("status")}
+                onValueChange={(value) =>
+                  form.setValue("status", value as TableStatus, { shouldDirty: true, shouldValidate: true })
+                }
+              />
+              <div className="flex gap-2 max-[780px]:justify-start">
+                {editingTable ? (
+                  <Button type="button" className="bg-muted text-secondary-foreground" disabled={isSubmitting} onClick={resetForm}>
+                    {t(MessageKey.Cancel)}
+                  </Button>
+                ) : null}
+                <Button type="submit" disabled={isSubmitting || !selectedBranchId}>
+                  {isSubmitting
+                    ? t(MessageKey.Saving)
+                    : editingTable
+                      ? t(MessageKey.SaveChanges)
+                      : t(MessageKey.TablesCreateButton)}
                 </Button>
-              ) : null}
-              <Button type="submit" disabled={isSubmitting || !selectedBranchId}>
-                {isSubmitting
-                  ? t(MessageKey.Saving)
-                  : editingTable
-                    ? t(MessageKey.SaveChanges)
-                    : t(MessageKey.TablesCreateButton)}
-              </Button>
-            </div>
-          </form>
-          {successMessage ? <StateMessage title={successMessage} tone="success" /> : null}
-          {formError ? (
-            <StateMessage title={t(MessageKey.TablesUnableToSave)} description={formError} tone="error" />
-          ) : null}
-        </section>
-      ) : null}
+              </div>
+            </form>
+            {successMessage ? <StateMessage title={successMessage} tone="success" /> : null}
+            {formError ? (
+              <StateMessage title={t(MessageKey.TablesUnableToSave)} description={formError} tone="error" />
+            ) : null}
+          </Panel>
+        ) : null}
 
-      <section className="rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
+      <Panel className={!selectedBranch ? "min-[981px]:col-span-2" : undefined}>
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <h2 className="m-0 text-base">{t(MessageKey.TablesListTitle)}</h2>
@@ -244,9 +242,9 @@ export const AdminTablesPage = () => {
               <article className="grid gap-2.5 rounded-md border border-border bg-muted/45 p-3" key={table.id}>
                 <div className="flex min-w-0 items-center gap-2.5 max-[780px]:items-start">
                   <strong>{table.name}</strong>
-                  <span className={cn(statusPillClassName, getTableStatusClassName(table.status))}>
+                  <StatusPill className={getTableStatusClassName(table.status)}>
                     {getTableStatusLabel(table.status)}
-                  </span>
+                  </StatusPill>
                   <span className="break-words text-[13px] font-bold text-muted-foreground">
                     {t(MessageKey.Updated)} {formatDateTime(table.updatedAt)}
                   </span>
@@ -276,6 +274,7 @@ export const AdminTablesPage = () => {
             ))}
           </div>
         ) : null}
+      </Panel>
       </section>
     </section>
   );

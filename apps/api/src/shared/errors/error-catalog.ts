@@ -7,10 +7,12 @@ export const ErrorCode = {
   InvalidOrderCart: "INVALID_ORDER_CART",
   InvalidUpload: "INVALID_UPLOAD",
   InvalidToken: "INVALID_TOKEN",
+  MenuInUse: "MENU_IN_USE",
   MenuNotFound: "MENU_NOT_FOUND",
   MissingAuthContext: "MISSING_AUTH_CONTEXT",
   MissingToken: "MISSING_TOKEN",
   OrderAlreadyPaid: "ORDER_ALREADY_PAID",
+  OrderCannotBeEdited: "ORDER_CANNOT_BE_EDITED",
   OrderCannotBePaid: "ORDER_CANNOT_BE_PAID",
   OrderNotFound: "ORDER_NOT_FOUND",
   PaymentAmountMismatch: "PAYMENT_AMOUNT_MISMATCH",
@@ -69,6 +71,11 @@ export const errorCatalog = {
     message: "Invalid token",
     statusCode: 401
   },
+  [ErrorCode.MenuInUse]: {
+    code: ErrorCode.MenuInUse,
+    message: "Menu item cannot be deleted after it has been ordered",
+    statusCode: 409
+  },
   [ErrorCode.MenuNotFound]: {
     code: ErrorCode.MenuNotFound,
     message: "Menu item not found",
@@ -87,6 +94,11 @@ export const errorCatalog = {
   [ErrorCode.OrderAlreadyPaid]: {
     code: ErrorCode.OrderAlreadyPaid,
     message: "Order is already paid",
+    statusCode: 409
+  },
+  [ErrorCode.OrderCannotBeEdited]: {
+    code: ErrorCode.OrderCannotBeEdited,
+    message: "Paid or cancelled order cannot be edited",
     statusCode: 409
   },
   [ErrorCode.OrderCannotBePaid]: {

@@ -3,8 +3,12 @@ import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "../../components/ui/Button";
 import { DateField } from "../../components/ui/DateField";
+import { MetricCard } from "../../components/ui/MetricCard";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { Panel } from "../../components/ui/Panel";
 import { SelectField } from "../../components/ui/SelectField";
 import { StateMessage } from "../../components/ui/StateMessage";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { useAuth } from "../../features/auth/AuthContext";
 import { useBranchesQuery } from "../../features/branches/hooks";
 import { useDashboardQuery } from "../../features/dashboard/hooks";
@@ -17,8 +21,7 @@ import { formatCurrency } from "../../lib/format/currency";
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
-import { getOrderStatusClassName, statusPillClassName } from "../../lib/theme/status-colors";
-import { cn } from "../../lib/utils/cn";
+import { getOrderStatusClassName } from "../../lib/theme/status-colors";
 
 const statusOrder: OrderStatus[] = ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVED", "CANCELLED", "PAID"];
 
@@ -69,45 +72,56 @@ export const AdminDashboardPage = () => {
 
   return (
     <section className="grid gap-5">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <p className="mb-1.5 mt-0 text-xs font-bold uppercase text-muted-foreground">{t(MessageKey.DashboardEyebrow)}</p>
-          <h1 className="m-0 text-[28px] leading-tight">{t(MessageKey.DashboardTitle)}</h1>
-          {admin ? (
-            <p className="mb-0 mt-2 text-muted-foreground">{t(MessageKey.DashboardSignedInAs, { email: admin.email })}</p>
+      <PageHeader
+        eyebrow={t(MessageKey.DashboardEyebrow)}
+        title={t(MessageKey.DashboardTitle)}
+        subtitle={admin ? t(MessageKey.DashboardSignedInAs, { email: admin.email }) : undefined}
+      />
+
+      <Panel className="grid gap-4">
+        <div className="flex items-start justify-between gap-4 max-[780px]:grid">
+          <div className="min-w-0">
+            <h2 className="m-0 text-base">{selectedBranchName}</h2>
+            <p className="mt-1 text-[13px] leading-normal text-muted-foreground">
+              {formatDate(filters.startDate)} - {formatDate(filters.endDate)}
+            </p>
+          </div>
+          {dashboardQuery.isFetching ? (
+            <span className="inline-flex min-h-8 items-center rounded-full bg-secondary px-3 py-1 text-xs font-extrabold text-secondary-foreground">
+              {t(MessageKey.DashboardLoadingReport)}
+            </span>
           ) : null}
         </div>
-      </header>
-
-      <form
-        className="grid grid-cols-[minmax(0,180px)_minmax(0,180px)_minmax(0,280px)_auto] items-end gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel max-[780px]:grid-cols-1 max-[780px]:items-stretch"
-        onSubmit={form.handleSubmit(() => void dashboardQuery.refetch())}
-      >
-        <DateField
-          label={t(MessageKey.DashboardStartDate)}
-          max={filters.endDate}
-          value={filters.startDate}
-          onValueChange={(value) => form.setValue("startDate", value, { shouldDirty: true, shouldValidate: true })}
-        />
-        <DateField
-          label={t(MessageKey.DashboardEndDate)}
-          min={filters.startDate}
-          value={filters.endDate}
-          onValueChange={(value) => form.setValue("endDate", value, { shouldDirty: true, shouldValidate: true })}
-        />
-        <SelectField
-          label={t(MessageKey.Branch)}
-          options={[
-            { label: t(MessageKey.DashboardAllBranches), value: "ALL" },
-            ...branches.map((branch) => ({ label: branch.name, value: branch.id }))
-          ]}
-          value={filters.branchId}
-          onValueChange={(value) => form.setValue("branchId", value, { shouldDirty: true, shouldValidate: true })}
-        />
-        <Button type="submit" className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent">
-          {t(MessageKey.Refresh)}
-        </Button>
-      </form>
+        <form
+          className="grid grid-cols-[minmax(0,180px)_minmax(0,180px)_minmax(0,280px)_auto] items-end gap-3 max-[780px]:grid-cols-1 max-[780px]:items-stretch"
+          onSubmit={form.handleSubmit(() => void dashboardQuery.refetch())}
+        >
+          <DateField
+            label={t(MessageKey.DashboardStartDate)}
+            max={filters.endDate}
+            value={filters.startDate}
+            onValueChange={(value) => form.setValue("startDate", value, { shouldDirty: true, shouldValidate: true })}
+          />
+          <DateField
+            label={t(MessageKey.DashboardEndDate)}
+            min={filters.startDate}
+            value={filters.endDate}
+            onValueChange={(value) => form.setValue("endDate", value, { shouldDirty: true, shouldValidate: true })}
+          />
+          <SelectField
+            label={t(MessageKey.Branch)}
+            options={[
+              { label: t(MessageKey.DashboardAllBranches), value: "ALL" },
+              ...branches.map((branch) => ({ label: branch.name, value: branch.id }))
+            ]}
+            value={filters.branchId}
+            onValueChange={(value) => form.setValue("branchId", value, { shouldDirty: true, shouldValidate: true })}
+          />
+          <Button type="submit" className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent">
+            {t(MessageKey.Refresh)}
+          </Button>
+        </form>
+      </Panel>
 
       {form.formState.errors.endDate ? <StateMessage title={t(MessageKey.ValidationFailed)} tone="error" /> : null}
       {branchesQuery.isLoading ? <StateMessage title={t(MessageKey.DashboardLoadingBranches)} /> : null}
@@ -130,37 +144,42 @@ export const AdminDashboardPage = () => {
 
       {dashboard ? (
         <>
-          <div className="grid grid-cols-4 gap-4 max-[780px]:grid-cols-1">
-            <section className="grid min-h-[132px] gap-2 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
-              <span className="text-xs font-extrabold uppercase text-muted-foreground">{t(MessageKey.DashboardRevenueTotal)}</span>
-              <strong className="break-words text-[26px] leading-tight text-primary">{formatCurrency(dashboard.revenue.total, locale)}</strong>
-              <small className="self-end text-[13px] leading-normal text-muted-foreground">{selectedBranchName}</small>
-            </section>
-            <section className="grid min-h-[132px] gap-2 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
-              <span className="text-xs font-extrabold uppercase text-muted-foreground">{t(MessageKey.DashboardOrderTotal)}</span>
-              <strong className="break-words text-[26px] leading-tight text-primary">{dashboard.orders.total}</strong>
-              <small className="self-end text-[13px] leading-normal text-muted-foreground">
-                {formatDate(dashboard.filters.startDate)} - {formatDate(dashboard.filters.endDate)}
-              </small>
-            </section>
-            <section className="grid min-h-[132px] gap-2 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
-              <span className="text-xs font-extrabold uppercase text-muted-foreground">{t(MessageKey.DashboardProcessingOrders)}</span>
-              <strong className="break-words text-[26px] leading-tight text-primary">{dashboard.orders.processing}</strong>
-              <small className="self-end text-[13px] leading-normal text-muted-foreground">{t(MessageKey.DashboardProcessingHint)}</small>
-            </section>
-            <section className="grid min-h-[132px] gap-2 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
-              <span className="text-xs font-extrabold uppercase text-muted-foreground">{t(MessageKey.DashboardBestSeller)}</span>
-              <strong className="break-words text-[26px] leading-tight text-primary">{dashboard.topMenuItems[0]?.menuName ?? t(MessageKey.DashboardNoBestSeller)}</strong>
-              <small className="self-end text-[13px] leading-normal text-muted-foreground">
-                {dashboard.topMenuItems[0]
+          <div className="grid grid-cols-[repeat(4,minmax(0,1fr))] gap-4 max-[1180px]:grid-cols-2 max-[780px]:grid-cols-1">
+            <MetricCard
+              label={t(MessageKey.DashboardRevenueTotal)}
+              value={formatCurrency(dashboard.revenue.total, locale)}
+              supportingText={selectedBranchName}
+              accent="success"
+            />
+            <MetricCard
+              label={t(MessageKey.DashboardOrderTotal)}
+              value={dashboard.orders.total}
+              supportingText={
+                <>
+                  {formatDate(dashboard.filters.startDate)} - {formatDate(dashboard.filters.endDate)}
+                </>
+              }
+              accent="info"
+            />
+            <MetricCard
+              label={t(MessageKey.DashboardProcessingOrders)}
+              value={dashboard.orders.processing}
+              supportingText={t(MessageKey.DashboardProcessingHint)}
+              accent="warning"
+            />
+            <MetricCard
+              label={t(MessageKey.DashboardBestSeller)}
+              value={dashboard.topMenuItems[0]?.menuName ?? t(MessageKey.DashboardNoBestSeller)}
+              supportingText={
+                dashboard.topMenuItems[0]
                   ? t(MessageKey.DashboardItemsSold, { count: dashboard.topMenuItems[0].quantity })
-                  : t(MessageKey.DashboardNoSalesInRange)}
-              </small>
-            </section>
+                  : t(MessageKey.DashboardNoSalesInRange)
+              }
+            />
           </div>
 
-          <section className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] items-start gap-4 max-[780px]:grid-cols-1">
-            <section className="rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
+          <section className="grid grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)] items-start gap-4 max-[980px]:grid-cols-1">
+            <Panel>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <h2>{t(MessageKey.DashboardTopMenuTitle)}</h2>
@@ -184,9 +203,9 @@ export const AdminDashboardPage = () => {
                   ))}
                 </div>
               )}
-            </section>
+            </Panel>
 
-            <section className="rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
+            <Panel>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <h2>{t(MessageKey.DashboardStatusTitle)}</h2>
@@ -205,16 +224,16 @@ export const AdminDashboardPage = () => {
 
                     return (
                       <div className="flex items-center justify-between gap-3 border-b border-border py-3 last:border-b-0" key={status}>
-                        <span className={cn(statusPillClassName, getOrderStatusClassName(status))}>
+                        <StatusPill className={getOrderStatusClassName(status)}>
                           {getOrderStatusLabel(status)}
-                        </span>
+                        </StatusPill>
                         <strong className="text-lg text-primary">{count}</strong>
                       </div>
                     );
                   })}
                 </div>
               )}
-            </section>
+            </Panel>
           </section>
         </>
       ) : null}

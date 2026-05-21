@@ -5,7 +5,7 @@ import {
   publicMenuParamsSchema,
   updateMenuSchema
 } from "../schemas/menu.schema.js";
-import { createTenantMenu, listPublicQrMenus, listTenantMenus, updateTenantMenu } from "../services/menu.service.js";
+import { createTenantMenu, deleteTenantMenu, listPublicQrMenus, listTenantMenus, updateTenantMenu } from "../services/menu.service.js";
 import { AppError } from "../shared/errors/app-error.js";
 import { ErrorCode } from "../shared/errors/error-catalog.js";
 import { created, ok } from "../shared/http/api-response.js";
@@ -43,6 +43,15 @@ export const updateMenuController = async (request: Request, response: Response)
 
   ok(response, {
     menu
+  });
+};
+
+export const deleteMenuController = async (request: Request, response: Response) => {
+  const params = parseParams(request, menuParamsSchema);
+  await deleteTenantMenu(getTenantId(request), params.menuId);
+
+  ok(response, {
+    deleted: true
   });
 };
 

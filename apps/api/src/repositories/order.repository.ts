@@ -176,3 +176,51 @@ export const createOrderWithItems = async (
     include: orderInclude
   });
 };
+
+export const replaceOrderItemsByTenant = async (
+  db: DbClient,
+  input: {
+    tenantId: string;
+    orderId: string;
+    total: Prisma.Decimal;
+    items: Array<{
+      menuId: string;
+      quantity: number;
+      unitPrice: Prisma.Decimal;
+    }>;
+  }
+): Promise<OrderRecord | null> => {
+  const result = await db.order.updateMany({
+    where: {
+      id: input.orderId,
+      tenantId: input.tenantId
+    },
+    data: {
+      total: input.total
+    }
+  });
+
+  if (result.count === 0) {
+    return null;
+  }
+
+  await db.orderItem.deleteMany({
+    where: {
+      orderId: input.orderId
+    }
+  });
+
+  await db.orderItem.createMany({
+    data: input.items.map((item) => ({
+      orderId: input.orderId,
+      menuId: item.menuId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice
+    }))
+  });
+
+  return findOrderByTenant(db, {
+    tenantId: input.tenantId,
+    orderId: input.orderId
+  });
+};

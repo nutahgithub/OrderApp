@@ -1,18 +1,17 @@
 import { useEffect, useState } from "react";
+import { Minus, Plus, ReceiptText, Store } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
+import { Panel } from "../../components/ui/Panel";
 import { StateMessage } from "../../components/ui/StateMessage";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { qrApi } from "../../features/customer-order/api";
 import type { Menu, OrderDetail, OrderStatus, QrEntry } from "../../lib/api/types";
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
 import { createRealtimeSocket, RealtimeEvent } from "../../lib/realtime/socket";
-import {
-  getOrderStatusClassName,
-  getRealtimeConnectionClassName,
-  statusPillClassName
-} from "../../lib/theme/status-colors";
+import { getOrderStatusClassName, getRealtimeConnectionClassName } from "../../lib/theme/status-colors";
 import { cn } from "../../lib/utils/cn";
 
 type QrRouteParams = {
@@ -268,22 +267,29 @@ export const CustomerQrEntryPage = () => {
   };
 
   return (
-    <section className="mx-auto w-[min(520px,100%)] rounded-md border border-border bg-card p-5 text-card-foreground shadow-panel">
-      <p className="mb-1.5 mt-0 text-xs font-bold uppercase text-muted-foreground">{t(MessageKey.QrEyebrow)}</p>
-      <h1 className="m-0 text-[28px] leading-tight">{qrEntry.table.name}</h1>
-      <p className="mt-1 text-[13px] leading-normal text-muted-foreground">{qrEntry.branch.name}</p>
-      <dl className="my-[18px] grid gap-2.5">
-        <div className="flex justify-between gap-3 border-b border-border py-3">
-          <dt className="font-bold text-muted-foreground">{t(MessageKey.QrBranch)}</dt>
-          <dd className="m-0 break-words">{qrEntry.branch.name}</dd>
+    <section className="mx-auto grid w-[min(520px,100%)] gap-4 pb-24">
+      <Panel className="overflow-hidden p-0">
+        <div className="bg-primary px-5 py-5 text-primary-foreground">
+          <p className="mb-1.5 mt-0 text-xs font-bold uppercase tracking-normal text-primary-foreground/80">{t(MessageKey.QrEyebrow)}</p>
+          <h1 className="m-0 break-words text-[30px] leading-tight">{qrEntry.table.name}</h1>
+          <p className="mt-2 inline-flex items-center gap-1.5 text-sm leading-normal text-primary-foreground/85">
+            <Store className="h-4 w-4" aria-hidden="true" />
+            <span className="break-words">{qrEntry.branch.name}</span>
+          </p>
         </div>
-        <div className="flex justify-between gap-3 border-b border-border py-3">
-          <dt className="font-bold text-muted-foreground">{t(MessageKey.QrTableStatus)}</dt>
-          <dd className="m-0 break-words">
-            {qrEntry.table.status === "DISABLED" ? t(MessageKey.Unavailable) : t(MessageKey.ReadyToOrder)}
-          </dd>
-        </div>
-      </dl>
+        <dl className="grid gap-2.5 p-5">
+          <div className="flex justify-between gap-3 border-b border-border py-3">
+            <dt className="font-bold text-muted-foreground">{t(MessageKey.QrBranch)}</dt>
+            <dd className="m-0 break-words text-right">{qrEntry.branch.name}</dd>
+          </div>
+          <div className="flex justify-between gap-3 py-3">
+            <dt className="font-bold text-muted-foreground">{t(MessageKey.QrTableStatus)}</dt>
+            <dd className="m-0 break-words text-right">
+              {qrEntry.table.status === "DISABLED" ? t(MessageKey.Unavailable) : t(MessageKey.ReadyToOrder)}
+            </dd>
+          </div>
+        </dl>
+      </Panel>
       {isDisabled ? (
         <StateMessage
           title={t(MessageKey.QrTableUnavailableTitle)}
@@ -322,16 +328,16 @@ export const CustomerQrEntryPage = () => {
           </div>
           <div className="mt-[18px] grid gap-2.5">
             {menus.map((menu) => (
-              <article className="grid grid-cols-[64px_minmax(0,1fr)_auto_auto] items-center gap-3.5 border-b border-border py-3 max-[780px]:grid-cols-[64px_minmax(0,1fr)] max-[780px]:items-start" key={menu.id}>
-                <div className="grid h-16 w-16 flex-none place-items-center overflow-hidden rounded-md border border-border bg-muted font-extrabold text-muted-foreground" aria-label={menu.imageUrl ? menu.name : t(MessageKey.MenusNoImage)}>
+              <article className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3.5 rounded-md border border-border bg-card p-3 shadow-panel max-[460px]:grid-cols-[72px_minmax(0,1fr)] max-[460px]:items-start" key={menu.id}>
+                <div className="grid h-[72px] w-[72px] flex-none place-items-center overflow-hidden rounded-md border border-border bg-muted font-extrabold text-muted-foreground" aria-label={menu.imageUrl ? menu.name : t(MessageKey.MenusNoImage)}>
                   {menu.imageUrl ? <img className="h-full w-full object-cover" src={menu.imageUrl} alt={menu.name} loading="lazy" /> : <span>{menu.name[0]}</span>}
                 </div>
                 <div className="grid min-w-0 gap-1">
                   <strong>{menu.name}</strong>
                   <span className="break-words text-[13px] text-muted-foreground">{t(MessageKey.QrAvailableNow)}</span>
+                  <b className="text-primary">{formatCurrency(menu.price)}</b>
                 </div>
-                <b className="whitespace-nowrap text-primary max-[780px]:col-start-2 max-[780px]:whitespace-normal">{formatCurrency(menu.price)}</b>
-                <div className="inline-grid flex-none grid-cols-[42px_36px_42px] items-center justify-end gap-1.5 max-[780px]:col-span-2 max-[780px]:w-full max-[780px]:justify-start">
+                <div className="inline-grid flex-none grid-cols-[42px_36px_42px] items-center justify-end gap-1.5 max-[460px]:col-span-2 max-[460px]:w-full max-[460px]:justify-end">
                   <Button
                     type="button"
                     className="min-h-[42px] w-[42px] touch-manipulation bg-secondary p-0 text-base text-secondary-foreground hover:bg-accent"
@@ -339,7 +345,7 @@ export const CustomerQrEntryPage = () => {
                     onClick={() => updateCart(menu.id, -1)}
                     disabled={(cart[menu.id] ?? 0) === 0 || orderState.status === "submitting"}
                   >
-                    -
+                    <Minus className="h-4 w-4" aria-hidden="true" />
                   </Button>
                   <span className="text-center font-extrabold text-secondary-foreground">{cart[menu.id] ?? 0}</span>
                   <Button
@@ -349,15 +355,18 @@ export const CustomerQrEntryPage = () => {
                     onClick={() => updateCart(menu.id, 1)}
                     disabled={orderState.status === "submitting"}
                   >
-                    +
+                    <Plus className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </div>
               </article>
             ))}
           </div>
-          <section className="mt-5 grid gap-3 border-t border-border pt-4">
+          <Panel className="mt-5 grid gap-3">
             <div className="mt-5 flex items-center justify-between gap-3 max-[780px]:items-start">
-              <h2 className="m-0 text-base">{t(MessageKey.QrCartTitle)}</h2>
+              <h2 className="m-0 inline-flex items-center gap-2 text-base">
+                <ReceiptText className="h-4 w-4 text-primary" aria-hidden="true" />
+                {t(MessageKey.QrCartTitle)}
+              </h2>
               <span className="flex-none text-[13px] font-bold text-muted-foreground">{t(MessageKey.QrItems, { count: cartCount })}</span>
             </div>
             {cartItems.length === 0 ? (
@@ -376,9 +385,9 @@ export const CustomerQrEntryPage = () => {
             {orderState.status === "error" ? (
               <StateMessage title={t(MessageKey.QrUnableToSubmitOrder)} description={orderState.message} tone="error" />
             ) : null}
-          </section>
+          </Panel>
           {orderState.status === "success" ? (
-            <section className="mt-5 grid gap-3 border-t border-border pt-4">
+            <Panel className="mt-5 grid gap-3">
               <div className="mt-5 flex items-center justify-between gap-3 max-[780px]:items-start">
                 <h2 className="m-0 text-base">{t(MessageKey.QrTrackingTitle)}</h2>
                 <span className={cn("inline-flex min-h-[30px] items-center justify-center self-center rounded-full px-2.5 py-1 text-xs font-extrabold", getRealtimeConnectionClassName(realtimeState))}>
@@ -387,9 +396,9 @@ export const CustomerQrEntryPage = () => {
                   {realtimeState === "fallback" ? t(MessageKey.RealtimeFallback) : null}
                 </span>
               </div>
-              <span className={cn(statusPillClassName, getOrderStatusClassName(orderState.order.status))}>
+              <StatusPill className={getOrderStatusClassName(orderState.order.status)}>
                 {getOrderStatusLabel(orderState.order.status)}
-              </span>
+              </StatusPill>
               <div className="flex items-center justify-between gap-3 py-3 font-extrabold">
                 <span>{t(MessageKey.QrOrderTotal)}</span>
                 <strong className="text-primary">{formatCurrency(orderState.order.total)}</strong>
@@ -397,7 +406,20 @@ export const CustomerQrEntryPage = () => {
               <Button type="button" className="bg-secondary text-secondary-foreground hover:bg-accent" onClick={() => void refreshOrder(orderState.order.id)}>
                 {t(MessageKey.Refresh)}
               </Button>
-            </section>
+            </Panel>
+          ) : null}
+          {cartItems.length > 0 && orderState.status !== "success" ? (
+            <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-card/95 p-3 shadow-floating backdrop-blur">
+              <div className="mx-auto flex w-[min(520px,100%)] items-center justify-between gap-3">
+                <div className="grid min-w-0 gap-0.5">
+                  <span className="text-xs font-bold text-muted-foreground">{t(MessageKey.QrItems, { count: cartCount })}</span>
+                  <strong className="break-words text-primary">{formatCurrency(String(cartTotal))}</strong>
+                </div>
+                <Button type="button" className="mt-0 flex-none px-5" disabled={orderState.status === "submitting"} onClick={() => void submitOrder()}>
+                  {orderState.status === "submitting" ? t(MessageKey.QrSubmittingOrder) : t(MessageKey.QrSubmitOrder)}
+                </Button>
+              </div>
+            </div>
           ) : null}
         </>
       ) : null}

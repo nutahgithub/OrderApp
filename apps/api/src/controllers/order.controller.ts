@@ -5,6 +5,7 @@ import {
   orderParamsSchema,
   qrOrderDetailParamsSchema,
   qrOrderParamsSchema,
+  updateOrderItemsSchema,
   updateOrderStatusSchema
 } from "../schemas/order.schema.js";
 import { confirmPaymentSchema } from "../schemas/payment.schema.js";
@@ -13,6 +14,7 @@ import {
   getQrOrderDetail,
   getTenantOrderDetail,
   listTenantOrders,
+  updateTenantOrderItems,
   updateTenantOrderStatus
 } from "../services/order.service.js";
 import { confirmTenantOrderPayment } from "../services/payment.service.js";
@@ -52,6 +54,16 @@ export const updateOrderStatusController = async (request: Request, response: Re
   const params = parseParams(request, orderParamsSchema);
   const input = parseBody(request, updateOrderStatusSchema);
   const order = await updateTenantOrderStatus(getTenantId(request), params.orderId, input);
+
+  ok(response, {
+    order
+  });
+};
+
+export const updateOrderItemsController = async (request: Request, response: Response) => {
+  const params = parseParams(request, orderParamsSchema);
+  const input = parseBody(request, updateOrderItemsSchema);
+  const order = await updateTenantOrderItems(getTenantId(request), params.orderId, input);
 
   ok(response, {
     order

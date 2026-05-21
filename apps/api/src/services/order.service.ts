@@ -7,6 +7,7 @@ import {
   createOrderWithItems,
   findOrderByTenant,
   listOrdersByTenantBranch,
+  replaceOrderItemsByTenant,
   updateOrderStatusByTenant
 } from "../repositories/order.repository.js";
 import type { OrderRecord } from "../repositories/order.repository.js";
@@ -24,6 +25,7 @@ import type {
   OrderDetailDto,
   OrderDto,
   OrderItemDto,
+  UpdateOrderItemsInput,
   UpdateOrderStatusInput
 } from "../types/order.types.js";
 
@@ -109,6 +111,37 @@ const ensureBranchBelongsToTenant = async (tenantId: string, branchId: string): 
   }
 };
 
+const resolveOrderItems = async (
+  db: Parameters<typeof listActiveMenusByTenantAndIds>[0],
+  tenantId: string,
+  input: UpdateOrderItemsInput
+) => {
+  const quantityByMenuId = input.items.reduce<Map<string, number>>((accumulator, item) => {
+    accumulator.set(item.menuId, (accumulator.get(item.menuId) ?? 0) + item.quantity);
+    return accumulator;
+  }, new Map<string, number>());
+  const menuIds = [...quantityByMenuId.keys()];
+  const menus = await listActiveMenusByTenantAndIds(db, {
+    tenantId,
+    menuIds
+  });
+
+  if (menus.length !== menuIds.length) {
+    throw new AppError(ErrorCode.InvalidOrderCart);
+  }
+
+  const items = menus.map((menu) => ({
+    menuId: menu.id,
+    quantity: quantityByMenuId.get(menu.id) ?? 0,
+    unitPrice: menu.price
+  }));
+  const total = items.reduce((sum, item) => {
+    return sum.add(item.unitPrice.mul(new Prisma.Decimal(item.quantity)));
+  }, new Prisma.Decimal(0));
+
+  return { items, total };
+};
+
 export const listTenantOrders = async (tenantId: string, input: ListOrdersInput): Promise<ListOrdersResultDto> => {
   await ensureBranchBelongsToTenant(tenantId, input.branchId);
 
@@ -169,28 +202,7 @@ export const createQrOrder = async (
       throw new AppError(ErrorCode.TableNotFound);
     }
 
-    const quantityByMenuId = input.items.reduce<Map<string, number>>((accumulator, item) => {
-      accumulator.set(item.menuId, (accumulator.get(item.menuId) ?? 0) + item.quantity);
-      return accumulator;
-    }, new Map<string, number>());
-    const menuIds = [...quantityByMenuId.keys()];
-    const menus = await listActiveMenusByTenantAndIds(tx, {
-      tenantId,
-      menuIds
-    });
-
-    if (menus.length !== menuIds.length) {
-      throw new AppError(ErrorCode.InvalidOrderCart);
-    }
-
-    const items = menus.map((menu) => ({
-      menuId: menu.id,
-      quantity: quantityByMenuId.get(menu.id) ?? 0,
-      unitPrice: menu.price
-    }));
-    const total = items.reduce((sum, item) => {
-      return sum.add(item.unitPrice.mul(new Prisma.Decimal(item.quantity)));
-    }, new Prisma.Decimal(0));
+    const { items, total } = await resolveOrderItems(tx, tenantId, input);
 
     return createOrderWithItems(tx, {
       tenantId,
@@ -212,6 +224,53 @@ export const createQrOrder = async (
   recordOrderCreated();
   emitOrderCreated({
     order: toOrderDto(order)
+  });
+
+  return dto;
+};
+
+export const updateTenantOrderItems = async (
+  tenantId: string,
+  orderId: string,
+  input: UpdateOrderItemsInput
+): Promise<OrderDetailDto> => {
+  const order = await prisma.$transaction(async (tx) => {
+    const currentOrder = await findOrderByTenant(tx, {
+      tenantId,
+      orderId
+    });
+
+    if (!currentOrder) {
+      throw new AppError(ErrorCode.OrderNotFound);
+    }
+
+    if (currentOrder.status === "PAID" || currentOrder.status === "CANCELLED") {
+      throw new AppError(ErrorCode.OrderCannotBeEdited);
+    }
+
+    const { items, total } = await resolveOrderItems(tx, tenantId, input);
+    const updatedOrder = await replaceOrderItemsByTenant(tx, {
+      tenantId,
+      orderId,
+      total,
+      items
+    });
+
+    if (!updatedOrder) {
+      throw new AppError(ErrorCode.OrderNotFound);
+    }
+
+    return updatedOrder;
+  });
+  const dto = toOrderDetailDto(order);
+
+  logger.info("order_items_updated", {
+    tenantId,
+    branchId: order.branchId,
+    orderId: order.id
+  });
+  emitOrderStatusUpdated({
+    order: dto
   });
 
   return dto;

@@ -35,6 +35,8 @@ export type CreateQrOrderInput = {
   }>;
 };
 
+export type UpdateOrderItemsInput = CreateQrOrderInput;
+
 export type ListOrdersInput = {
   branchId: string;
   status?: OrderStatus;

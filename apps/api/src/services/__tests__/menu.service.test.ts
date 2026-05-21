@@ -1,10 +1,17 @@
 import type { Menu, RestaurantTable } from "@prisma/client";
 import { Prisma, TableStatus } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createMenu, listActiveMenusByTenant, listMenusByTenant, updateMenuByTenant } from "../../repositories/menu.repository.js";
+import {
+  countMenuOrderItemsByTenant,
+  createMenu,
+  deleteMenuByTenant,
+  listActiveMenusByTenant,
+  listMenusByTenant,
+  updateMenuByTenant
+} from "../../repositories/menu.repository.js";
 import { findTableQrEntry } from "../../repositories/table.repository.js";
 import { ErrorCode } from "../../shared/errors/error-catalog.js";
-import { createTenantMenu, listPublicQrMenus, listTenantMenus, updateTenantMenu } from "../menu.service.js";
+import { createTenantMenu, deleteTenantMenu, listPublicQrMenus, listTenantMenus, updateTenantMenu } from "../menu.service.js";
 
 vi.mock("../../shared/prisma/client.js", () => ({
   prisma: {
@@ -14,7 +21,9 @@ vi.mock("../../shared/prisma/client.js", () => ({
 }));
 
 vi.mock("../../repositories/menu.repository.js", () => ({
+  countMenuOrderItemsByTenant: vi.fn(),
   createMenu: vi.fn(),
+  deleteMenuByTenant: vi.fn(),
   listActiveMenusByTenant: vi.fn(),
   listMenusByTenant: vi.fn(),
   updateMenuByTenant: vi.fn()
@@ -53,7 +62,7 @@ describe("menu service", () => {
   });
 
   it("lists menus inside the tenant scope", async () => {
-    vi.mocked(listMenusByTenant).mockResolvedValue([menuFixture()]);
+    vi.mocked(listMenusByTenant).mockResolvedValue([{ ...menuFixture(), _count: { items: 0 } }]);
 
     const result = await listTenantMenus("tenant-1");
 
@@ -62,7 +71,8 @@ describe("menu service", () => {
       expect.objectContaining({
         id: "menu-1",
         price: "45000.00",
-        isActive: true
+        isActive: true,
+        canDelete: true
       })
     ]);
   });
@@ -118,6 +128,40 @@ describe("menu service", () => {
     ).rejects.toMatchObject({
       code: ErrorCode.MenuNotFound
     });
+  });
+
+  it("deletes a menu item before it has been ordered", async () => {
+    vi.mocked(countMenuOrderItemsByTenant).mockResolvedValue(0);
+    vi.mocked(deleteMenuByTenant).mockResolvedValue(1);
+
+    await deleteTenantMenu("tenant-1", "menu-1");
+
+    expect(countMenuOrderItemsByTenant).toHaveBeenCalledWith(expect.any(Object), {
+      tenantId: "tenant-1",
+      menuId: "menu-1"
+    });
+    expect(deleteMenuByTenant).toHaveBeenCalledWith(expect.any(Object), {
+      tenantId: "tenant-1",
+      menuId: "menu-1"
+    });
+  });
+
+  it("blocks deleting a menu item after it has been ordered", async () => {
+    vi.mocked(countMenuOrderItemsByTenant).mockResolvedValue(2);
+
+    await expect(deleteTenantMenu("tenant-1", "menu-1")).rejects.toMatchObject({
+      code: ErrorCode.MenuInUse
+    });
+    expect(deleteMenuByTenant).not.toHaveBeenCalled();
+  });
+
+  it("returns MENU_NOT_FOUND when deleting a menu outside the tenant", async () => {
+    vi.mocked(countMenuOrderItemsByTenant).mockResolvedValue(null);
+
+    await expect(deleteTenantMenu("tenant-1", "missing-menu")).rejects.toMatchObject({
+      code: ErrorCode.MenuNotFound
+    });
+    expect(deleteMenuByTenant).not.toHaveBeenCalled();
   });
 
   it("only returns active menus for a valid QR context", async () => {

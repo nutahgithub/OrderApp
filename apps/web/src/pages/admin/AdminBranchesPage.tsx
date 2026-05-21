@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { Panel } from "../../components/ui/Panel";
 import { StateMessage } from "../../components/ui/StateMessage";
 import { useAuth } from "../../features/auth/AuthContext";
 import {
@@ -127,111 +129,107 @@ export const AdminBranchesPage = () => {
 
   return (
     <section className="grid gap-5">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <p className="mb-1.5 mt-0 text-xs font-bold uppercase text-muted-foreground">{t(MessageKey.Setup)}</p>
-          <h1 className="m-0 text-[28px] leading-tight">{t(MessageKey.BranchesTitle)}</h1>
-          <p className="mb-0 mt-2 text-muted-foreground">{t(MessageKey.BranchesSubtitle)}</p>
-        </div>
-      </header>
+      <PageHeader eyebrow={t(MessageKey.Setup)} title={t(MessageKey.BranchesTitle)} subtitle={t(MessageKey.BranchesSubtitle)} />
 
-      <section className="grid gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
-        <h2 className="m-0 text-base">{editingBranch ? t(MessageKey.BranchesEditTitle) : t(MessageKey.BranchesCreateTitle)}</h2>
-        <p className="-mt-1 text-[13px] leading-normal text-muted-foreground">{t(MessageKey.BranchesHint)}</p>
-        <form className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 max-[780px]:grid-cols-1 max-[780px]:items-stretch" onSubmit={form.handleSubmit(handleSubmit)}>
-          <Input
-            label={t(MessageKey.BranchesNameLabel)}
-            {...form.register("name")}
-            placeholder={t(MessageKey.BranchesNamePlaceholder)}
-          />
-          <div className="flex gap-2 max-[780px]:justify-start">
-            {editingBranch ? (
-              <Button
-                type="button"
-                className="bg-muted text-secondary-foreground"
-                disabled={isSubmitting}
-                onClick={() => {
-                  setEditingBranch(null);
-                  setFormError(null);
-                  form.reset({ name: "" });
-                }}
-              >
-                {t(MessageKey.Cancel)}
+      <section className="grid grid-cols-[minmax(280px,0.72fr)_minmax(0,1.28fr)] items-start gap-4 max-[980px]:grid-cols-1">
+        <Panel className="grid gap-3 min-[981px]:sticky min-[981px]:top-7">
+          <h2 className="m-0 text-base">{editingBranch ? t(MessageKey.BranchesEditTitle) : t(MessageKey.BranchesCreateTitle)}</h2>
+          <p className="-mt-1 text-[13px] leading-normal text-muted-foreground">{t(MessageKey.BranchesHint)}</p>
+          <form className="grid gap-3" onSubmit={form.handleSubmit(handleSubmit)}>
+            <Input
+              label={t(MessageKey.BranchesNameLabel)}
+              {...form.register("name")}
+              placeholder={t(MessageKey.BranchesNamePlaceholder)}
+            />
+            <div className="flex gap-2 max-[780px]:justify-start">
+              {editingBranch ? (
+                <Button
+                  type="button"
+                  className="bg-muted text-secondary-foreground"
+                  disabled={isSubmitting}
+                  onClick={() => {
+                    setEditingBranch(null);
+                    setFormError(null);
+                    form.reset({ name: "" });
+                  }}
+                >
+                  {t(MessageKey.Cancel)}
+                </Button>
+              ) : null}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting
+                  ? t(MessageKey.Saving)
+                  : editingBranch
+                    ? t(MessageKey.SaveChanges)
+                    : t(MessageKey.BranchesCreateButton)}
               </Button>
-            ) : null}
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting
-                ? t(MessageKey.Saving)
-                : editingBranch
-                  ? t(MessageKey.SaveChanges)
-                  : t(MessageKey.BranchesCreateButton)}
+            </div>
+          </form>
+          {fieldError ? <StateMessage title={t(fieldError as MessageKey)} tone="error" /> : null}
+          {successMessage ? <StateMessage title={successMessage} tone="success" /> : null}
+          {formError ? (
+            <StateMessage title={t(MessageKey.BranchesUnableToSave)} description={formError} tone="error" />
+          ) : null}
+        </Panel>
+
+        <Panel>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="m-0 text-base">{t(MessageKey.BranchesListTitle)}</h2>
+              {branches.length > 0 ? (
+                <p className="mt-1 text-[13px] leading-normal text-muted-foreground">{t(MessageKey.BranchesTotal, { count: branches.length })}</p>
+              ) : null}
+            </div>
+            <Button type="button" className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent" onClick={() => void branchesQuery.refetch()}>
+              {t(MessageKey.Refresh)}
             </Button>
           </div>
-        </form>
-        {fieldError ? <StateMessage title={t(fieldError as MessageKey)} tone="error" /> : null}
-        {successMessage ? <StateMessage title={successMessage} tone="success" /> : null}
-        {formError ? (
-          <StateMessage title={t(MessageKey.BranchesUnableToSave)} description={formError} tone="error" />
-        ) : null}
-      </section>
 
-      <section className="rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="m-0 text-base">{t(MessageKey.BranchesListTitle)}</h2>
-            {branches.length > 0 ? (
-              <p className="mt-1 text-[13px] leading-normal text-muted-foreground">{t(MessageKey.BranchesTotal, { count: branches.length })}</p>
-            ) : null}
-          </div>
-          <Button type="button" className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent" onClick={() => void branchesQuery.refetch()}>
-            {t(MessageKey.Refresh)}
-          </Button>
-        </div>
-
-        {branchesQuery.isLoading ? <StateMessage title={t(MessageKey.BranchesLoading)} /> : null}
-        {loadError ? (
-          <StateMessage title={t(MessageKey.BranchesUnableToLoad)} description={loadError} tone="error" />
-        ) : null}
-        {branchesQuery.isSuccess && branches.length === 0 ? (
-          <StateMessage title={t(MessageKey.BranchesEmptyTitle)} description={t(MessageKey.BranchesEmptyDescription)} />
-        ) : null}
-        {branches.length > 0 ? (
-          <div className="grid gap-2.5">
-            {branches.map((branch) => (
-              <article className="flex items-center justify-between gap-3.5 rounded-md border border-border bg-muted/45 p-3 max-[780px]:grid max-[780px]:grid-cols-1" key={branch.id}>
-                <div className="grid min-w-0 gap-1">
-                  <strong>{branch.name}</strong>
-                  <span className="break-words text-[13px] font-bold text-muted-foreground">
-                    {t(MessageKey.Updated)} {formatDateTime(branch.updatedAt)}
-                  </span>
-                </div>
-                <div className="flex gap-2 max-[780px]:justify-start">
-                  <Button
-                    type="button"
-                    className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
-                    disabled={isDeleting}
-                    onClick={() => {
-                      setFormError(null);
-                      setDeleteBlockedMessage(null);
-                      setSuccessMessage(null);
-                      setEditingBranch({ id: branch.id, name: branch.name });
-                    }}
-                  >
-                    {t(MessageKey.Edit)}
-                  </Button>
-                  <Button
-                    type="button"
-                    className="mt-0 min-h-9 border border-destructive/35 bg-background text-destructive hover:bg-destructive/10"
-                    disabled={isDeleting}
-                    onClick={() => openDeleteDialog({ id: branch.id, name: branch.name })}
-                  >
-                    {t(MessageKey.Delete)}
-                  </Button>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : null}
+          {branchesQuery.isLoading ? <StateMessage title={t(MessageKey.BranchesLoading)} /> : null}
+          {loadError ? (
+            <StateMessage title={t(MessageKey.BranchesUnableToLoad)} description={loadError} tone="error" />
+          ) : null}
+          {branchesQuery.isSuccess && branches.length === 0 ? (
+            <StateMessage title={t(MessageKey.BranchesEmptyTitle)} description={t(MessageKey.BranchesEmptyDescription)} />
+          ) : null}
+          {branches.length > 0 ? (
+            <div className="grid gap-2.5">
+              {branches.map((branch) => (
+                <article className="flex items-center justify-between gap-3.5 rounded-md border border-border bg-muted/45 p-3 max-[780px]:grid max-[780px]:grid-cols-1" key={branch.id}>
+                  <div className="grid min-w-0 gap-1">
+                    <strong>{branch.name}</strong>
+                    <span className="break-words text-[13px] font-bold text-muted-foreground">
+                      {t(MessageKey.Updated)} {formatDateTime(branch.updatedAt)}
+                    </span>
+                  </div>
+                  <div className="flex gap-2 max-[780px]:justify-start">
+                    <Button
+                      type="button"
+                      className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
+                      disabled={isDeleting}
+                      onClick={() => {
+                        setFormError(null);
+                        setDeleteBlockedMessage(null);
+                        setSuccessMessage(null);
+                        setEditingBranch({ id: branch.id, name: branch.name });
+                      }}
+                    >
+                      {t(MessageKey.Edit)}
+                    </Button>
+                    <Button
+                      type="button"
+                      className="mt-0 min-h-9 border border-destructive/35 bg-background text-destructive hover:bg-destructive/10"
+                      disabled={isDeleting}
+                      onClick={() => openDeleteDialog({ id: branch.id, name: branch.name })}
+                    >
+                      {t(MessageKey.Delete)}
+                    </Button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </Panel>
       </section>
 
       {pendingDeleteBranch ? (

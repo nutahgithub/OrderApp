@@ -1,11 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
+import { Search } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { Panel } from "../../components/ui/Panel";
 import { StateMessage } from "../../components/ui/StateMessage";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { useAuth } from "../../features/auth/AuthContext";
 import {
   useCreateMenuMutation,
+  useDeleteMenuMutation,
   useMenusQuery,
   useUpdateMenuMutation,
   useUploadMenuImageMutation
@@ -15,8 +20,6 @@ import type { Menu } from "../../lib/api/types";
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
-import { statusPillClassName } from "../../lib/theme/status-colors";
-import { cn } from "../../lib/utils/cn";
 
 type EditingMenu = {
   id: string;
@@ -28,6 +31,7 @@ type EditingMenu = {
 };
 
 const maxCompressedImageBytes = 1_000_000;
+const menusPerPage = 12;
 
 const formatCurrency = (price: string): string => {
   return new Intl.NumberFormat("vi-VN", {
@@ -35,6 +39,13 @@ const formatCurrency = (price: string): string => {
     currency: "VND",
     maximumFractionDigits: 2
   }).format(Number(price));
+};
+
+const normalizeMenuSearchText = (value: string): string => {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase();
 };
 
 const normalizePriceInput = (value: string): string => {
@@ -170,13 +181,19 @@ export const AdminMenusPage = () => {
   const menusQuery = useMenusQuery(token);
   const createMenuMutation = useCreateMenuMutation(token);
   const updateMenuMutation = useUpdateMenuMutation(token);
+  const deleteMenuMutation = useDeleteMenuMutation(token);
   const uploadMenuImageMutation = useUploadMenuImageMutation(token);
+  const menuImageInputRef = useRef<HTMLInputElement | null>(null);
   const [newMenuName, setNewMenuName] = useState("");
   const [newMenuPrice, setNewMenuPrice] = useState("");
   const [newMenuImageFile, setNewMenuImageFile] = useState<File | null>(null);
   const [newMenuIsActive, setNewMenuIsActive] = useState(true);
   const [editingMenu, setEditingMenu] = useState<EditingMenu | null>(null);
+  const [menuSearch, setMenuSearch] = useState("");
+  const [showHiddenMenus, setShowHiddenMenus] = useState(true);
+  const [menuPage, setMenuPage] = useState(1);
   const [formError, setFormError] = useState<string | null>(null);
+  const [formErrorTitle, setFormErrorTitle] = useState<MessageKey>(MessageKey.MenusUnableToSave);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [busyMenuId, setBusyMenuId] = useState<string | null>(null);
 
@@ -184,12 +201,31 @@ export const AdminMenusPage = () => {
   const visibleMenuCount = menus.filter((menu) => menu.isActive).length;
   const hiddenMenuCount = menus.length - visibleMenuCount;
   const isSubmitting = createMenuMutation.isPending || updateMenuMutation.isPending || uploadMenuImageMutation.isPending;
+  const normalizedMenuSearch = normalizeMenuSearchText(menuSearch.trim());
+  const filteredMenus = useMemo(() => {
+    return menus.filter((menu) => {
+      const matchesStatus = showHiddenMenus || menu.isActive;
+      const matchesSearch = normalizedMenuSearch === "" || normalizeMenuSearchText(menu.name).includes(normalizedMenuSearch);
+
+      return matchesStatus && matchesSearch;
+    });
+  }, [menus, normalizedMenuSearch, showHiddenMenus]);
+  const totalMenuPages = Math.max(1, Math.ceil(filteredMenus.length / menusPerPage));
+  const paginatedMenus = filteredMenus.slice((menuPage - 1) * menusPerPage, menuPage * menusPerPage);
 
   useEffect(() => {
     if (!token) {
       logout();
     }
   }, [logout, token]);
+
+  useEffect(() => {
+    setMenuPage(1);
+  }, [normalizedMenuSearch, showHiddenMenus]);
+
+  useEffect(() => {
+    setMenuPage((currentPage) => Math.min(currentPage, totalMenuPages));
+  }, [totalMenuPages]);
 
   const resetForm = () => {
     setEditingMenu(null);
@@ -198,6 +234,10 @@ export const AdminMenusPage = () => {
     setNewMenuImageFile(null);
     setNewMenuIsActive(true);
     setFormError(null);
+    setFormErrorTitle(MessageKey.MenusUnableToSave);
+    if (menuImageInputRef.current) {
+      menuImageInputRef.current.value = "";
+    }
   };
 
   const uploadSelectedImage = async (_authToken: string, imageFile: File | null): Promise<string | null> => {
@@ -228,6 +268,7 @@ export const AdminMenusPage = () => {
     });
 
     if (!parsed.success) {
+      setFormErrorTitle(MessageKey.MenusUnableToSave);
       setFormError(t(parsed.error.issues[0]?.message as MessageKey));
       setSuccessMessage(null);
       return;
@@ -247,6 +288,7 @@ export const AdminMenusPage = () => {
       resetForm();
       setSuccessMessage(t(MessageKey.MenusCreated));
     } catch (error: unknown) {
+      setFormErrorTitle(MessageKey.MenusUnableToSave);
       setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
     }
   };
@@ -262,6 +304,7 @@ export const AdminMenusPage = () => {
     const parsed = menuSchema.safeParse(editingMenu);
 
     if (!parsed.success) {
+      setFormErrorTitle(MessageKey.MenusUnableToSave);
       setFormError(t(parsed.error.issues[0]?.message as MessageKey));
       setSuccessMessage(null);
       return;
@@ -284,6 +327,7 @@ export const AdminMenusPage = () => {
       resetForm();
       setSuccessMessage(t(MessageKey.MenusUpdated));
     } catch (error: unknown) {
+      setFormErrorTitle(MessageKey.MenusUnableToSave);
       setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
     }
   };
@@ -310,7 +354,38 @@ export const AdminMenusPage = () => {
       });
       setSuccessMessage(menu.isActive ? t(MessageKey.MenusHiddenFromQr) : t(MessageKey.MenusAvailableToQr));
     } catch (error: unknown) {
+      setFormErrorTitle(MessageKey.MenusUnableToSave);
       setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
+    } finally {
+      setBusyMenuId(null);
+    }
+  };
+
+  const handleDelete = async (menu: Menu) => {
+    if (!token) {
+      logout();
+      return;
+    }
+
+    const confirmed = window.confirm(t(MessageKey.MenusDeleteConfirm, { menuName: menu.name }));
+
+    if (!confirmed) {
+      return;
+    }
+
+    setFormError(null);
+    setSuccessMessage(null);
+    setBusyMenuId(menu.id);
+
+    try {
+      await deleteMenuMutation.mutateAsync(menu.id);
+      if (editingMenu?.id === menu.id) {
+        resetForm();
+      }
+      setSuccessMessage(t(MessageKey.MenusDeleted));
+    } catch (error: unknown) {
+      setFormErrorTitle(MessageKey.MenusUnableToDelete);
+      setFormError(getUserErrorMessage(error, MessageKey.MenusUnableToDelete, locale));
     } finally {
       setBusyMenuId(null);
     }
@@ -323,18 +398,13 @@ export const AdminMenusPage = () => {
 
   return (
     <section className="grid gap-5">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <p className="mb-1.5 mt-0 text-xs font-bold uppercase text-muted-foreground">{t(MessageKey.Setup)}</p>
-          <h1 className="m-0 text-[28px] leading-tight">{t(MessageKey.MenusTitle)}</h1>
-          <p className="mb-0 mt-2 text-muted-foreground">{t(MessageKey.MenusSubtitle)}</p>
-        </div>
-      </header>
+      <PageHeader eyebrow={t(MessageKey.Setup)} title={t(MessageKey.MenusTitle)} subtitle={t(MessageKey.MenusSubtitle)} />
 
-      <section className="grid gap-3 rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
+      <section className="grid grid-cols-[minmax(320px,0.82fr)_minmax(0,1.18fr)] items-start gap-4 max-[1100px]:grid-cols-1">
+      <Panel className="grid gap-3 min-[1101px]:sticky min-[1101px]:top-7">
         <h2 className="m-0 text-base">{editingMenu ? t(MessageKey.MenusEditTitle) : t(MessageKey.MenusCreateTitle)}</h2>
         <p className="-mt-1 text-[13px] leading-normal text-muted-foreground">{t(MessageKey.MenusHint)}</p>
-        <form className="grid grid-cols-[minmax(0,1fr)_190px_minmax(260px,1fr)_150px_auto] items-end gap-3 pb-5 max-[1100px]:grid-cols-[minmax(0,1fr)_190px_minmax(260px,1fr)] max-[1100px]:pb-0 max-[780px]:grid-cols-1 max-[780px]:items-stretch" onSubmit={editingMenu ? handleUpdate : handleCreate}>
+        <form className="grid gap-3" onSubmit={editingMenu ? handleUpdate : handleCreate}>
           <Input
             label={t(MessageKey.MenusDishNameLabel)}
             name="menuName"
@@ -373,11 +443,12 @@ export const AdminMenusPage = () => {
               <span className="flex-none text-sm font-extrabold text-muted-foreground">đ</span>
             </span>
           </label>
-          <label className="grid min-w-0 gap-1.5 text-sm font-semibold text-foreground min-[1101px]:relative min-[1101px]:self-end">
+          <label className="grid min-w-0 gap-1.5 text-sm font-semibold text-foreground">
             <span>{t(MessageKey.MenusImageLabel)}</span>
             <input
               className="min-h-[42px] w-full rounded-md border border-input bg-card p-2 text-foreground"
               name="menuImage"
+              ref={menuImageInputRef}
               type="file"
               accept="image/png,image/jpeg,image/webp"
               onChange={(event) => {
@@ -390,7 +461,7 @@ export const AdminMenusPage = () => {
                 }
               }}
             />
-            <span className="text-xs font-medium leading-normal text-muted-foreground min-[1101px]:absolute min-[1101px]:left-0 min-[1101px]:right-0 min-[1101px]:top-[calc(100%+0.375rem)]">
+            <span className="text-xs font-medium leading-normal text-muted-foreground">
               {formImageFile
                 ? t(MessageKey.MenusImageSelected, { fileName: formImageFile.name })
                 : t(MessageKey.MenusImageHint)}
@@ -430,12 +501,12 @@ export const AdminMenusPage = () => {
         </form>
         {successMessage ? <StateMessage title={successMessage} tone="success" /> : null}
         {formError ? (
-          <StateMessage title={t(MessageKey.MenusUnableToSave)} description={formError} tone="error" />
+          <StateMessage title={t(formErrorTitle)} description={formError} tone="error" />
         ) : null}
-      </section>
+      </Panel>
 
-      <section className="rounded-md border border-border bg-card p-[18px] text-card-foreground shadow-panel">
-        <div className="mb-3 flex items-center justify-between gap-3">
+      <Panel>
+        <div className="mb-4 grid gap-3">
           <div>
             <h2 className="m-0 text-base">{t(MessageKey.MenusListTitle)}</h2>
             {menus.length > 0 ? (
@@ -444,9 +515,31 @@ export const AdminMenusPage = () => {
               </p>
             ) : null}
           </div>
-          <Button type="button" className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent" onClick={() => void menusQuery.refetch()}>
-            {t(MessageKey.Refresh)}
-          </Button>
+          <div className="grid grid-cols-[minmax(280px,620px)_auto] items-center gap-3 max-[780px]:grid-cols-1">
+            <label className="relative block min-w-0" htmlFor="menuSearch">
+              <Search
+                className="pointer-events-none absolute left-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <input
+                id="menuSearch"
+                className="min-h-12 w-full rounded-md border border-input bg-card py-2 pl-11 pr-4 text-base font-semibold text-foreground shadow-sm transition placeholder:text-muted-foreground/70 hover:border-ring/60 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20"
+                placeholder={t(MessageKey.MenusSearchPlaceholder)}
+                type="search"
+                value={menuSearch}
+                onChange={(event) => setMenuSearch(event.target.value)}
+              />
+            </label>
+            <label className="flex min-h-[38px] items-center gap-2 text-sm font-bold text-foreground">
+              <input
+                className="h-[18px] w-[18px]"
+                type="checkbox"
+                checked={showHiddenMenus}
+                onChange={(event) => setShowHiddenMenus(event.target.checked)}
+              />
+              {t(MessageKey.MenusShowHidden)}
+            </label>
+          </div>
         </div>
 
         {menusQuery.isLoading ? <StateMessage title={t(MessageKey.MenusLoading)} /> : null}
@@ -460,28 +553,31 @@ export const AdminMenusPage = () => {
         {menusQuery.isSuccess && menus.length === 0 ? (
           <StateMessage title={t(MessageKey.MenusEmptyTitle)} description={t(MessageKey.MenusEmptyDescription)} />
         ) : null}
-        {menus.length > 0 ? (
-          <div className="grid gap-2.5">
-            {menus.map((menu) => (
-              <article className="flex items-center justify-between gap-3.5 rounded-md border border-border bg-muted/45 p-3 max-[780px]:flex-col max-[780px]:items-stretch" key={menu.id}>
-                <div className="grid h-[58px] w-[58px] flex-none place-items-center overflow-hidden rounded-md border border-border bg-muted font-extrabold text-muted-foreground max-[780px]:h-auto max-[780px]:w-full max-[780px]:aspect-video" aria-label={menu.imageUrl ? menu.name : t(MessageKey.MenusNoImage)}>
+        {menus.length > 0 && filteredMenus.length === 0 ? <StateMessage title={t(MessageKey.MenusNoSearchResults)} /> : null}
+        {filteredMenus.length > 0 ? (
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-2.5">
+            {paginatedMenus.map((menu) => (
+              <article className="grid gap-3 rounded-md border border-border bg-muted/45 p-3" key={menu.id}>
+                <div className="grid aspect-[4/3] w-full place-items-center overflow-hidden rounded-md border border-border bg-muted font-extrabold text-muted-foreground" aria-label={menu.imageUrl ? menu.name : t(MessageKey.MenusNoImage)}>
                   {menu.imageUrl ? (
                     <img className="h-full w-full object-cover" src={menu.imageUrl} alt={menu.name} loading="lazy" />
                   ) : (
                     <span>{menu.name[0]}</span>
                   )}
                 </div>
-                <div className="flex min-w-0 flex-wrap items-center gap-2.5 max-[780px]:flex-col max-[780px]:items-start">
+                <div className="grid min-w-0 gap-2">
                   <strong>{menu.name}</strong>
-                  <span className="break-words text-[13px] font-bold text-muted-foreground">{formatCurrency(menu.price)}</span>
-                  <span className={cn(statusPillClassName, menu.isActive ? "bg-secondary text-secondary-foreground" : "bg-red-100 text-red-950")}>
-                    {menu.isActive ? t(MessageKey.Available).toUpperCase() : t(MessageKey.Hidden).toUpperCase()}
-                  </span>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="break-words text-[13px] font-bold text-muted-foreground">{formatCurrency(menu.price)}</span>
+                    <StatusPill className={menu.isActive ? "bg-secondary text-secondary-foreground" : "bg-red-100 text-red-950"}>
+                      {menu.isActive ? t(MessageKey.Available).toUpperCase() : t(MessageKey.Hidden).toUpperCase()}
+                    </StatusPill>
+                  </div>
                 </div>
-                <div className="flex flex-none items-center gap-2.5 max-[780px]:w-full max-[780px]:flex-col max-[780px]:items-start">
+                <div className="grid grid-cols-2 gap-2.5 max-[520px]:grid-cols-1">
                   <Button
                     type="button"
-                    className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent max-[780px]:w-full"
+                    className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
                     disabled={busyMenuId === menu.id}
                     onClick={() => void handleToggleActive(menu)}
                   >
@@ -493,7 +589,7 @@ export const AdminMenusPage = () => {
                   </Button>
                   <Button
                     type="button"
-                    className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent max-[780px]:w-full"
+                    className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
                     disabled={busyMenuId === menu.id}
                     onClick={() => {
                       setFormError(null);
@@ -510,11 +606,45 @@ export const AdminMenusPage = () => {
                   >
                     {t(MessageKey.Edit)}
                   </Button>
+                  {menu.canDelete ? (
+                    <Button
+                      type="button"
+                      className="mt-0 min-h-9 bg-red-600 text-white hover:bg-red-700"
+                      disabled={busyMenuId === menu.id || deleteMenuMutation.isPending}
+                      onClick={() => void handleDelete(menu)}
+                    >
+                      {t(MessageKey.Delete)}
+                    </Button>
+                  ) : null}
                 </div>
               </article>
             ))}
           </div>
         ) : null}
+        {filteredMenus.length > menusPerPage ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/30 p-3">
+            <Button
+              type="button"
+              className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
+              disabled={menuPage <= 1}
+              onClick={() => setMenuPage((currentPage) => Math.max(1, currentPage - 1))}
+            >
+              {t(MessageKey.OrdersPreviousPage)}
+            </Button>
+            <span className="text-sm font-bold text-muted-foreground">
+              {t(MessageKey.OrdersPageSummary, { page: menuPage, totalPages: totalMenuPages })}
+            </span>
+            <Button
+              type="button"
+              className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
+              disabled={menuPage >= totalMenuPages}
+              onClick={() => setMenuPage((currentPage) => Math.min(totalMenuPages, currentPage + 1))}
+            >
+              {t(MessageKey.OrdersNextPage)}
+            </Button>
+          </div>
+        ) : null}
+      </Panel>
       </section>
     </section>
   );

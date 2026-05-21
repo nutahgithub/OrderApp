@@ -160,6 +160,8 @@ export type CreateQrOrderRequest = {
   }>;
 };
 
+export type UpdateOrderItemsRequest = CreateQrOrderRequest;
+
 export type ListOrdersResponse = {
   orders: Order[];
   pagination: {
@@ -219,6 +221,7 @@ export type Menu = {
   price: string;
   imageUrl: string | null;
   isActive: boolean;
+  canDelete: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -243,6 +246,10 @@ export type ListMenusResponse = {
 
 export type MenuResponse = {
   menu: Menu;
+};
+
+export type DeleteMenuResponse = {
+  deleted: boolean;
 };
 
 export type UploadImageRequest = {

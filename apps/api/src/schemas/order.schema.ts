@@ -52,3 +52,14 @@ export const createQrOrderSchema = z.object({
     )
     .min(1)
 });
+
+export const updateOrderItemsSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        menuId: z.string().min(1),
+        quantity: z.number().int().min(1).max(99)
+      })
+    )
+    .min(1)
+});

@@ -1,10 +1,23 @@
 import type { Menu } from "@prisma/client";
 import type { DbClient } from "../shared/prisma/types.js";
 
-export const listMenusByTenant = async (db: DbClient, tenantId: string): Promise<Menu[]> => {
+export type MenuWithUsage = Menu & {
+  _count: {
+    items: number;
+  };
+};
+
+export const listMenusByTenant = async (db: DbClient, tenantId: string): Promise<MenuWithUsage[]> => {
   return db.menu.findMany({
     where: {
       tenantId
+    },
+    include: {
+      _count: {
+        select: {
+          items: true
+        }
+      }
     },
     orderBy: {
       createdAt: "desc"
@@ -97,4 +110,45 @@ export const updateMenuByTenant = async (
       tenantId: input.tenantId
     }
   });
+};
+
+export const countMenuOrderItemsByTenant = async (
+  db: DbClient,
+  input: {
+    tenantId: string;
+    menuId: string;
+  }
+): Promise<number | null> => {
+  const menu = await db.menu.findFirst({
+    where: {
+      id: input.menuId,
+      tenantId: input.tenantId
+    },
+    select: {
+      _count: {
+        select: {
+          items: true
+        }
+      }
+    }
+  });
+
+  return menu?._count.items ?? null;
+};
+
+export const deleteMenuByTenant = async (
+  db: DbClient,
+  input: {
+    tenantId: string;
+    menuId: string;
+  }
+): Promise<number> => {
+  const result = await db.menu.deleteMany({
+    where: {
+      id: input.menuId,
+      tenantId: input.tenantId
+    }
+  });
+
+  return result.count;
 };

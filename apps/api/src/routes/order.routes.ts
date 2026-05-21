@@ -5,6 +5,7 @@ import {
   getOrderController,
   getQrOrderController,
   listOrdersController,
+  updateOrderItemsController,
   updateOrderStatusController
 } from "../controllers/order.controller.js";
 import { requireAdminAuth } from "../middlewares/auth.middleware.js";
@@ -15,6 +16,7 @@ export const orderRouter = Router();
 orderRouter.use(requireAdminAuth);
 orderRouter.get("/", asyncHandler(listOrdersController));
 orderRouter.get("/:orderId", asyncHandler(getOrderController));
+orderRouter.patch("/:orderId/items", asyncHandler(updateOrderItemsController));
 orderRouter.patch("/:orderId/status", asyncHandler(updateOrderStatusController));
 orderRouter.post("/:orderId/payment", asyncHandler(confirmPaymentController));
 

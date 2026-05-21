@@ -4,8 +4,8 @@ import { ThemeSwitcher } from "../ui/ThemeSwitcher";
 
 export const CustomerLayout = () => {
   return (
-    <main className="min-h-screen bg-background p-[18px]">
-      <div className="mx-auto mb-3 flex w-[min(520px,100%)] justify-end gap-2.5">
+    <main className="min-h-screen bg-background px-3 py-4">
+      <div className="mx-auto mb-3 grid w-[min(520px,100%)] grid-cols-2 gap-2.5">
         <LanguageSwitcher />
         <ThemeSwitcher />
       </div>

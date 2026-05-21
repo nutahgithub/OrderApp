@@ -1,7 +1,15 @@
 import { Prisma } from "@prisma/client";
 import type { Menu } from "@prisma/client";
 import { findTableQrEntry } from "../repositories/table.repository.js";
-import { createMenu, listActiveMenusByTenant, listMenusByTenant, updateMenuByTenant } from "../repositories/menu.repository.js";
+import {
+  countMenuOrderItemsByTenant,
+  createMenu,
+  deleteMenuByTenant,
+  listActiveMenusByTenant,
+  listMenusByTenant,
+  updateMenuByTenant
+} from "../repositories/menu.repository.js";
+import type { MenuWithUsage } from "../repositories/menu.repository.js";
 import { AppError } from "../shared/errors/app-error.js";
 import { ErrorCode } from "../shared/errors/error-catalog.js";
 import { logger } from "../shared/logger/logger.js";
@@ -12,7 +20,7 @@ const normalizePrice = (price: string): string => {
   return new Prisma.Decimal(price).toFixed(2);
 };
 
-const toMenuDto = (menu: Menu): MenuDto => {
+const toMenuDto = (menu: Menu | MenuWithUsage): MenuDto => {
   return {
     id: menu.id,
     tenantId: menu.tenantId,
@@ -20,6 +28,7 @@ const toMenuDto = (menu: Menu): MenuDto => {
     price: menu.price.toFixed(2),
     imageUrl: menu.imageUrl,
     isActive: menu.isActive,
+    canDelete: "_count" in menu ? menu._count.items === 0 : false,
     createdAt: menu.createdAt.toISOString(),
     updatedAt: menu.updatedAt.toISOString()
   };
@@ -74,6 +83,35 @@ export const updateTenantMenu = async (
   });
 
   return toMenuDto(menu);
+};
+
+export const deleteTenantMenu = async (tenantId: string, menuId: string): Promise<void> => {
+  const orderItemCount = await countMenuOrderItemsByTenant(prisma, {
+    tenantId,
+    menuId
+  });
+
+  if (orderItemCount === null) {
+    throw new AppError(ErrorCode.MenuNotFound);
+  }
+
+  if (orderItemCount > 0) {
+    throw new AppError(ErrorCode.MenuInUse);
+  }
+
+  const deletedCount = await deleteMenuByTenant(prisma, {
+    tenantId,
+    menuId
+  });
+
+  if (deletedCount === 0) {
+    throw new AppError(ErrorCode.MenuNotFound);
+  }
+
+  logger.info("menu_deleted", {
+    tenantId,
+    menuId
+  });
 };
 
 export const listPublicQrMenus = async (

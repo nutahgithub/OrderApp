@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { BellRing, Building2, Gauge, LogOut, MenuSquare, ShoppingBag, Store, Table2, Volume2 } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthContext";
 import { branchesApi } from "../../features/branches/api";
@@ -24,11 +25,12 @@ type AudioWindow = Window & {
 let notificationAudioContext: AudioContext | null = null;
 
 const navItems = [
-  { labelKey: MessageKey.NavDashboard, to: "/admin/dashboard" },
-  { labelKey: MessageKey.NavBranches, to: "/admin/branches" },
-  { labelKey: MessageKey.NavTables, to: "/admin/tables" },
-  { labelKey: MessageKey.NavMenus, to: "/admin/menus" },
-  { labelKey: MessageKey.NavOrders, to: "/admin/orders" }
+  { icon: Gauge, labelKey: MessageKey.NavDashboard, to: "/admin/dashboard" },
+  { icon: Building2, labelKey: MessageKey.NavBranches, to: "/admin/branches" },
+  { icon: Table2, labelKey: MessageKey.NavTables, to: "/admin/tables" },
+  { icon: MenuSquare, labelKey: MessageKey.NavMenus, to: "/admin/menus" },
+  { icon: Table2, labelKey: MessageKey.NavTableSales, to: "/admin/table-sales" },
+  { icon: ShoppingBag, labelKey: MessageKey.NavOrders, to: "/admin/orders" }
 ];
 
 const formatCurrency = (price: string): string => {
@@ -224,46 +226,63 @@ export const AdminLayout = () => {
   };
 
   return (
-    <div className="grid min-h-screen grid-cols-[248px_minmax(0,1fr)] max-[780px]:grid-cols-1">
-      <aside className="flex flex-col gap-6 bg-[hsl(var(--sidebar))] p-6 text-[hsl(var(--sidebar-foreground))] max-[780px]:sticky max-[780px]:top-0 max-[780px]:z-10 max-[780px]:p-4">
-        <div>
-          <div className="text-lg font-bold">Smart Restaurant OS</div>
+    <div className="grid min-h-screen grid-cols-[264px_minmax(0,1fr)] max-[780px]:grid-cols-1">
+      <aside className="flex flex-col gap-5 bg-[hsl(var(--sidebar))] p-5 text-[hsl(var(--sidebar-foreground))] max-[780px]:sticky max-[780px]:top-0 max-[780px]:z-10 max-[780px]:gap-3 max-[780px]:p-3">
+        <div className="rounded-md border border-[hsl(var(--sidebar-foreground)/0.12)] bg-[hsl(var(--sidebar-foreground)/0.06)] p-3">
+          <div className="flex items-center gap-2.5 text-base font-extrabold">
+            <span className="grid h-9 w-9 place-items-center rounded-md bg-[hsl(var(--sidebar-foreground)/0.14)] text-sm">OS</span>
+            <span className="min-w-0 break-words">Smart Restaurant OS</span>
+          </div>
           {admin ? (
-            <div className="mt-3 grid gap-0.5 text-[13px] text-[hsl(var(--sidebar-foreground)/0.86)]">
-              <strong>{admin.name}</strong>
-              <span className="text-[hsl(var(--sidebar-foreground)/0.68)]">{admin.tenant.name}</span>
+            <div className="mt-3 grid gap-1 border-t border-[hsl(var(--sidebar-foreground)/0.12)] pt-3 text-[13px] text-[hsl(var(--sidebar-foreground)/0.86)]">
+              <strong className="break-words">{admin.name}</strong>
+              <span className="inline-flex min-w-0 items-center gap-1.5 text-[hsl(var(--sidebar-foreground)/0.68)]">
+                <Store className="h-3.5 w-3.5 flex-none" aria-hidden="true" />
+                <span className="break-words">{admin.tenant.name}</span>
+              </span>
             </div>
           ) : null}
         </div>
-        <nav className="grid gap-1.5 max-[780px]:grid-cols-3" aria-label="Admin navigation">
-          {navItems.map((item) => (
+        <nav className="grid gap-1.5 max-[780px]:flex max-[780px]:overflow-x-auto max-[780px]:pb-1" aria-label="Admin navigation">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+
+            return (
             <NavLink
               className={({ isActive }) =>
                 cn(
-                  "rounded-md px-3 py-2.5 text-[hsl(var(--sidebar-foreground)/0.86)] no-underline hover:bg-[hsl(var(--sidebar-foreground)/0.12)] hover:text-white max-[780px]:text-center",
-                  isActive && "bg-[hsl(var(--sidebar-foreground)/0.12)] text-white"
+                  "inline-flex min-h-11 items-center gap-2.5 rounded-md px-3 py-2.5 text-[hsl(var(--sidebar-foreground)/0.82)] no-underline transition hover:bg-[hsl(var(--sidebar-foreground)/0.12)] hover:text-white max-[780px]:min-w-max max-[780px]:justify-center",
+                  isActive && "bg-[hsl(var(--sidebar-foreground)/0.16)] text-white shadow-sm"
                 )
               }
               key={item.to}
               to={item.to}
             >
+              <Icon className="h-4 w-4 flex-none" aria-hidden="true" />
               {t(item.labelKey)}
             </NavLink>
-          ))}
+            );
+          })}
         </nav>
-        <LanguageSwitcher />
-        <ThemeSwitcher />
+        <div className="grid gap-3 rounded-md border border-[hsl(var(--sidebar-foreground)/0.12)] bg-[hsl(var(--sidebar-foreground)/0.06)] p-3 max-[780px]:grid-cols-2">
+          <LanguageSwitcher />
+          <ThemeSwitcher />
+        </div>
         {!soundReady ? (
-          <Button type="button" className="bg-muted text-secondary-foreground" onClick={handleEnableSound}>
+          <Button type="button" className="mt-0 bg-[hsl(var(--sidebar-foreground)/0.12)] text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-foreground)/0.2)]" onClick={handleEnableSound}>
+            <Volume2 className="h-4 w-4" aria-hidden="true" />
             {t(MessageKey.NotificationsEnableSound)}
           </Button>
         ) : null}
-        <Button type="button" className="mt-auto bg-secondary text-secondary-foreground hover:bg-accent" onClick={handleLogout}>
+        <Button type="button" className="mt-auto bg-[hsl(var(--sidebar-foreground)/0.12)] text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-foreground)/0.2)]" onClick={handleLogout}>
+          <LogOut className="h-4 w-4" aria-hidden="true" />
           {t(MessageKey.AuthLogout)}
         </Button>
       </aside>
-      <main className="p-7 max-[780px]:p-[18px]">
-        <Outlet />
+      <main className="min-w-0 bg-background p-7 max-[780px]:p-[18px]">
+        <div className="mx-auto w-full max-w-[1760px]">
+          <Outlet />
+        </div>
       </main>
       {toasts.length > 0 ? (
         <div
@@ -273,11 +292,14 @@ export const AdminLayout = () => {
         >
           {toasts.map((toast) => (
             <div
-              className="relative grid gap-1.5 overflow-hidden rounded-md border border-success/60 bg-success/10 py-4 pl-5 pr-4 text-primary shadow-floating before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-primary before:content-['']"
+              className="relative grid grid-cols-[auto_minmax(0,1fr)] gap-3 overflow-hidden rounded-md border border-success/60 bg-card py-4 pl-4 pr-4 text-primary shadow-floating before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-success before:content-['']"
               key={toast.id}
             >
-              <strong>{toast.title}</strong>
-              <span className="break-words text-sm leading-normal text-foreground">{toast.description}</span>
+              <BellRing className="mt-0.5 h-5 w-5" aria-hidden="true" />
+              <span className="grid min-w-0 gap-1">
+                <strong className="break-words">{toast.title}</strong>
+                <span className="break-words text-sm leading-normal text-foreground">{toast.description}</span>
+              </span>
             </div>
           ))}
         </div>

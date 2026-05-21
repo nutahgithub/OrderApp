@@ -2,20 +2,23 @@ import type { Branch, Menu, Order, OrderItem, RestaurantTable } from "@prisma/cl
 import { OrderStatus, Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { findBranchByTenant } from "../../repositories/branch.repository.js";
+import { listActiveMenusByTenantAndIds } from "../../repositories/menu.repository.js";
 import {
   countOrdersByTenantBranch,
   findOrderByTenant,
   listOrdersByTenantBranch,
+  replaceOrderItemsByTenant,
   updateOrderStatusByTenant
 } from "../../repositories/order.repository.js";
 import type { OrderRecord } from "../../repositories/order.repository.js";
 import { ErrorCode } from "../../shared/errors/error-catalog.js";
-import { getTenantOrderDetail, listTenantOrders, updateTenantOrderStatus } from "../order.service.js";
+import { getTenantOrderDetail, listTenantOrders, updateTenantOrderItems, updateTenantOrderStatus } from "../order.service.js";
 
 vi.mock("../../shared/prisma/client.js", () => ({
   prisma: {
     branch: {},
-    order: {}
+    order: {},
+    $transaction: vi.fn((callback: (tx: object) => unknown) => callback({}))
   }
 }));
 
@@ -23,10 +26,15 @@ vi.mock("../../repositories/branch.repository.js", () => ({
   findBranchByTenant: vi.fn()
 }));
 
+vi.mock("../../repositories/menu.repository.js", () => ({
+  listActiveMenusByTenantAndIds: vi.fn()
+}));
+
 vi.mock("../../repositories/order.repository.js", () => ({
   countOrdersByTenantBranch: vi.fn(),
   findOrderByTenant: vi.fn(),
   listOrdersByTenantBranch: vi.fn(),
+  replaceOrderItemsByTenant: vi.fn(),
   updateOrderStatusByTenant: vi.fn()
 }));
 
@@ -228,5 +236,66 @@ describe("order service", () => {
     ).rejects.toMatchObject({
       code: ErrorCode.OrderNotFound
     });
+  });
+
+  it("updates editable order items and recalculates the total", async () => {
+    const updatedRecord = orderRecordFixture({
+      total: new Prisma.Decimal("135000.00"),
+      items: [
+        {
+          ...orderItemFixture({
+            quantity: 3
+          }),
+          menu: {
+            id: "menu-1",
+            name: "Pho"
+          }
+        }
+      ]
+    });
+
+    vi.mocked(findOrderByTenant).mockResolvedValue(orderRecordFixture());
+    vi.mocked(listActiveMenusByTenantAndIds).mockResolvedValue([menuFixture()]);
+    vi.mocked(replaceOrderItemsByTenant).mockResolvedValue(updatedRecord);
+
+    const result = await updateTenantOrderItems("tenant-1", "order-1", {
+      items: [{ menuId: "menu-1", quantity: 3 }]
+    });
+
+    expect(listActiveMenusByTenantAndIds).toHaveBeenCalledWith(expect.any(Object), {
+      tenantId: "tenant-1",
+      menuIds: ["menu-1"]
+    });
+    expect(replaceOrderItemsByTenant).toHaveBeenCalledWith(expect.any(Object), {
+      tenantId: "tenant-1",
+      orderId: "order-1",
+      total: new Prisma.Decimal("135000.00"),
+      items: [
+        {
+          menuId: "menu-1",
+          quantity: 3,
+          unitPrice: new Prisma.Decimal("45000.00")
+        }
+      ]
+    });
+    expect(result.total).toBe("135000.00");
+    expect(result.items[0]?.quantity).toBe(3);
+  });
+
+  it("blocks item edits after an order is paid", async () => {
+    vi.mocked(findOrderByTenant).mockResolvedValue(
+      orderRecordFixture({
+        status: OrderStatus.PAID
+      })
+    );
+
+    await expect(
+      updateTenantOrderItems("tenant-1", "order-1", {
+        items: [{ menuId: "menu-1", quantity: 1 }]
+      })
+    ).rejects.toMatchObject({
+      code: ErrorCode.OrderCannotBeEdited
+    });
+    expect(replaceOrderItemsByTenant).not.toHaveBeenCalled();
   });
 });
