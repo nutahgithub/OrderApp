@@ -1,8 +1,10 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { AdminProfile } from "../../lib/api/types";
+import { authSessionExpiredEvent } from "../../lib/api/http";
 import { authApi } from "./api";
 import { clearAuthSession, readAuthSession, saveAuthSession } from "./auth-storage";
+import { readTokenExpiresAt } from "./auth-token";
 
 type LoginInput = {
   email: string;
@@ -37,6 +39,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     clearAuthSession();
     setSession(null);
   }, []);
+
+  useEffect(() => {
+    window.addEventListener(authSessionExpiredEvent, logout);
+
+    return () => {
+      window.removeEventListener(authSessionExpiredEvent, logout);
+    };
+  }, [logout]);
+
+  useEffect(() => {
+    if (!session?.token) {
+      return undefined;
+    }
+
+    const expiresAt = readTokenExpiresAt(session.token);
+
+    if (!expiresAt) {
+      return undefined;
+    }
+
+    const delay = expiresAt - Date.now();
+
+    if (delay <= 0) {
+      logout();
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(logout, delay);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [logout, session?.token]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

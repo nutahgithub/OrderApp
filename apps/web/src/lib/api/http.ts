@@ -2,6 +2,7 @@ import axios, { type AxiosRequestConfig } from "axios";
 import type { ApiErrorBody, ApiSuccessBody } from "./types";
 
 export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
+export const authSessionExpiredEvent = "orderapp:auth-session-expired";
 
 export class ApiClientError extends Error {
   public readonly status: number;
@@ -61,6 +62,12 @@ export const httpRequest = async <TResponse>(path: string, options: HttpRequestO
 
     return response.data.data;
   } catch (error: unknown) {
-    throw toApiClientError(error);
+    const apiError = toApiClientError(error);
+
+    if (apiError.status === 401) {
+      window.dispatchEvent(new Event(authSessionExpiredEvent));
+    }
+
+    throw apiError;
   }
 };

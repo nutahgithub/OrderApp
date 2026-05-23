@@ -1,4 +1,5 @@
 import type { AdminProfile } from "../../lib/api/types";
+import { isTokenExpired } from "./auth-token";
 
 const tokenKey = "orderapp.admin.token";
 const adminKey = "orderapp.admin.profile";
@@ -21,6 +22,11 @@ export const readAuthSession = (): StoredAuthSession | null => {
     return null;
   }
 
+  if (isTokenExpired(token)) {
+    clearAuthSession();
+    return null;
+  }
+
   try {
     const admin = JSON.parse(adminJson) as AdminProfile;
 
@@ -29,8 +35,7 @@ export const readAuthSession = (): StoredAuthSession | null => {
       admin
     };
   } catch {
-    window.localStorage.removeItem(tokenKey);
-    window.localStorage.removeItem(adminKey);
+    clearAuthSession();
     return null;
   }
 };
@@ -39,4 +44,3 @@ export const clearAuthSession = (): void => {
   window.localStorage.removeItem(tokenKey);
   window.localStorage.removeItem(adminKey);
 };
-

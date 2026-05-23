@@ -555,7 +555,7 @@ export const AdminMenusPage = () => {
         ) : null}
         {menus.length > 0 && filteredMenus.length === 0 ? <StateMessage title={t(MessageKey.MenusNoSearchResults)} /> : null}
         {filteredMenus.length > 0 ? (
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-2.5">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-2.5">
             {paginatedMenus.map((menu) => (
               <article className="grid gap-3 rounded-md border border-border bg-muted/45 p-3" key={menu.id}>
                 <div className="grid aspect-[4/3] w-full place-items-center overflow-hidden rounded-md border border-border bg-muted font-extrabold text-muted-foreground" aria-label={menu.imageUrl ? menu.name : t(MessageKey.MenusNoImage)}>
