@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Clock3 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { DateField } from "../../components/ui/DateField";
@@ -94,6 +94,7 @@ export const AdminOrdersPage = () => {
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [pendingPaymentOrder, setPendingPaymentOrder] = useState<OrderDetail | null>(null);
   const [realtimeState, setRealtimeState] = useState<RealtimeState>("idle");
+  const paymentIdempotencyKeyRef = useRef<string | null>(null);
   const updateOrderStatusMutation = useUpdateOrderStatusMutation(token, selectedBranchId, selectedStatus);
   const confirmPaymentMutation = useConfirmPaymentMutation(token, selectedBranchId, selectedStatus);
 
@@ -359,16 +360,21 @@ export const AdminOrdersPage = () => {
     setUpdateError(null);
     setActionErrorTitle(MessageKey.OrdersUnableToConfirmPayment);
     setConfirmingPayment(true);
+    if (!paymentIdempotencyKeyRef.current) {
+      paymentIdempotencyKeyRef.current = crypto.randomUUID();
+    }
 
     try {
       const response = await confirmPaymentMutation.mutateAsync({
         orderId: pendingPaymentOrder.id,
-        amount: pendingPaymentOrder.total
+        amount: pendingPaymentOrder.total,
+        idempotencyKey: paymentIdempotencyKeyRef.current
       });
       setOrderDetailState({ status: "success", order: response.order });
       void loadOrders(selectedBranchId, selectedStatus, selectedOrderDate, ordersPage);
       setSelectedOrderId(response.order.id);
       setPendingPaymentOrder(null);
+      paymentIdempotencyKeyRef.current = null;
       setSuccessMessage(t(MessageKey.OrdersPaymentCompleted));
     } catch (error: unknown) {
       setUpdateError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
@@ -550,6 +556,7 @@ export const AdminOrdersPage = () => {
                   onRequestPayment={() => {
                     setSuccessMessage(null);
                     setUpdateError(null);
+                    paymentIdempotencyKeyRef.current = crypto.randomUUID();
                     setPendingPaymentOrder(orderDetailState.order);
                   }}
                 />
@@ -575,7 +582,10 @@ export const AdminOrdersPage = () => {
           order={pendingPaymentOrder}
           isSubmitting={confirmingPayment}
           error={updateError}
-          onCancel={() => setPendingPaymentOrder(null)}
+          onCancel={() => {
+            paymentIdempotencyKeyRef.current = null;
+            setPendingPaymentOrder(null);
+          }}
           onConfirm={() => void handleConfirmPayment()}
         />
       ) : null}

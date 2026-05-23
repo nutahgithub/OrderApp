@@ -1,6 +1,12 @@
 import { Prisma } from "@prisma/client";
 import type { OrderItem } from "@prisma/client";
+import { IdempotencyAction } from "@prisma/client";
 import { findBranchByTenant } from "../repositories/branch.repository.js";
+import {
+  attachIdempotencyResource,
+  createIdempotencyKey,
+  findIdempotencyKey
+} from "../repositories/idempotency.repository.js";
 import { listActiveMenusByTenantAndIds } from "../repositories/menu.repository.js";
 import {
   countOrdersByTenantBranch,
@@ -14,6 +20,7 @@ import type { OrderRecord } from "../repositories/order.repository.js";
 import { findTableQrEntry } from "../repositories/table.repository.js";
 import { AppError } from "../shared/errors/app-error.js";
 import { ErrorCode } from "../shared/errors/error-catalog.js";
+import { hashIdempotencyPayload } from "../shared/http/idempotency.js";
 import { logger } from "../shared/logger/logger.js";
 import { recordOrderCreated } from "../shared/observability/metrics.js";
 import { prisma } from "../shared/prisma/client.js";
@@ -63,6 +70,63 @@ const resolveOrderDateRange = (input: ListOrdersInput): { startDate?: Date; endD
 
 const calculateLineTotal = (item: Pick<OrderItem, "quantity" | "unitPrice">): string => {
   return item.unitPrice.mul(new Prisma.Decimal(item.quantity)).toFixed(2);
+};
+
+const normalizeOrderItemsForIdempotency = (input: CreateQrOrderInput) => {
+  const quantityByMenuId = input.items.reduce<Map<string, number>>((accumulator, item) => {
+    accumulator.set(item.menuId, (accumulator.get(item.menuId) ?? 0) + item.quantity);
+    return accumulator;
+  }, new Map<string, number>());
+
+  return [...quantityByMenuId.entries()]
+    .sort(([leftMenuId], [rightMenuId]) => leftMenuId.localeCompare(rightMenuId))
+    .map(([menuId, quantity]) => ({ menuId, quantity }));
+};
+
+const buildCreateOrderIdempotencyHash = (
+  branchId: string,
+  tableId: string,
+  input: CreateQrOrderInput
+): string => {
+  return hashIdempotencyPayload({
+    branchId,
+    tableId,
+    items: normalizeOrderItemsForIdempotency(input)
+  });
+};
+
+const loadIdempotentOrder = async (
+  db: Parameters<typeof findOrderByTenant>[0],
+  input: {
+    tenantId: string;
+    idempotencyKey: string;
+    requestHash: string;
+  }
+): Promise<OrderRecord | null> => {
+  const existingKey = await findIdempotencyKey(db, {
+    tenantId: input.tenantId,
+    action: IdempotencyAction.CREATE_QR_ORDER,
+    key: input.idempotencyKey
+  });
+
+  if (!existingKey) {
+    return null;
+  }
+
+  if (existingKey.requestHash !== input.requestHash || !existingKey.resourceId) {
+    throw new AppError(ErrorCode.IdempotencyKeyConflict);
+  }
+
+  const order = await findOrderByTenant(db, {
+    tenantId: input.tenantId,
+    orderId: existingKey.resourceId
+  });
+
+  if (!order) {
+    throw new AppError(ErrorCode.IdempotencyKeyConflict);
+  }
+
+  return order;
 };
 
 export const toOrderDto = (order: OrderRecord): OrderDto => {
@@ -189,31 +253,86 @@ export const createQrOrder = async (
   tenantId: string,
   branchId: string,
   tableId: string,
-  input: CreateQrOrderInput
+  input: CreateQrOrderInput,
+  idempotencyKey: string
 ): Promise<OrderDetailDto> => {
-  const order = await prisma.$transaction(async (tx) => {
-    const table = await findTableQrEntry(tx, {
-      tenantId,
-      branchId,
-      tableId
-    });
+  const requestHash = buildCreateOrderIdempotencyHash(branchId, tableId, input);
+  let isReplay = false;
+  let order: OrderRecord;
 
-    if (!table || table.status === "DISABLED") {
-      throw new AppError(ErrorCode.TableNotFound);
+  try {
+    order = await prisma.$transaction(async (tx) => {
+      const existingOrder = await loadIdempotentOrder(tx, {
+        tenantId,
+        idempotencyKey,
+        requestHash
+      });
+
+      if (existingOrder) {
+        isReplay = true;
+        return existingOrder;
+      }
+
+      const keyRecord = await createIdempotencyKey(tx, {
+        tenantId,
+        action: IdempotencyAction.CREATE_QR_ORDER,
+        key: idempotencyKey,
+        requestHash
+      });
+
+      const table = await findTableQrEntry(tx, {
+        tenantId,
+        branchId,
+        tableId
+      });
+
+      if (!table || table.status === "DISABLED") {
+        throw new AppError(ErrorCode.TableNotFound);
+      }
+
+      const { items, total } = await resolveOrderItems(tx, tenantId, input);
+
+      const createdOrder = await createOrderWithItems(tx, {
+        tenantId,
+        branchId,
+        tableId,
+        total,
+        items
+      });
+
+      await attachIdempotencyResource(tx, {
+        id: keyRecord.id,
+        resourceId: createdOrder.id
+      });
+
+      return createdOrder;
+    });
+  } catch (error: unknown) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
+      throw error;
     }
 
-    const { items, total } = await resolveOrderItems(tx, tenantId, input);
+    const existingOrder = await prisma.$transaction((tx) =>
+      loadIdempotentOrder(tx, {
+        tenantId,
+        idempotencyKey,
+        requestHash
+      })
+    );
 
-    return createOrderWithItems(tx, {
-      tenantId,
-      branchId,
-      tableId,
-      total,
-      items
-    });
-  });
+    if (!existingOrder) {
+      throw error;
+    }
+
+    isReplay = true;
+    order = existingOrder;
+  }
 
   const dto = toOrderDetailDto(order);
+
+  if (isReplay) {
+    return dto;
+  }
 
   logger.info("order_created", {
     tenantId,

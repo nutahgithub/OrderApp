@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus, RefreshCw, Table2 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
@@ -24,6 +24,10 @@ import { cn } from "../../lib/utils/cn";
 
 type LoadState = "idle" | "loading" | "success" | "error";
 type Cart = Record<string, number>;
+type PendingIdempotencyKey = {
+  payloadSignature: string;
+  key: string;
+};
 
 type MenuPickerCardProps = {
   menu: Menu;
@@ -111,6 +115,8 @@ export const AdminTableSalesPage = () => {
   const [actionState, setActionState] = useState<LoadState>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const createOrderIdempotencyRef = useRef<PendingIdempotencyKey | null>(null);
+  const paymentIdempotencyKeyRef = useRef<string | null>(null);
   const today = toDateInputValue(new Date());
 
   const selectedBranch = branches.find((branch) => branch.id === selectedBranchId) ?? null;
@@ -286,14 +292,31 @@ export const AdminTableSalesPage = () => {
     setErrorMessage(null);
 
     try {
-      const response = await qrApi.createOrder(admin.tenantId, selectedBranch.id, selectedTable.id, {
+      const orderPayload = {
         items: cartItems.map((item) => ({
           menuId: item.menu.id,
           quantity: item.quantity
         }))
-      });
+      };
+      const payloadSignature = JSON.stringify([...orderPayload.items].sort((left, right) => left.menuId.localeCompare(right.menuId)));
+
+      if (createOrderIdempotencyRef.current?.payloadSignature !== payloadSignature) {
+        createOrderIdempotencyRef.current = {
+          payloadSignature,
+          key: crypto.randomUUID()
+        };
+      }
+
+      const response = await qrApi.createOrder(
+        admin.tenantId,
+        selectedBranch.id,
+        selectedTable.id,
+        orderPayload,
+        createOrderIdempotencyRef.current.key
+      );
 
       setCart({});
+      createOrderIdempotencyRef.current = null;
       setSelectedOrder(response.order);
       setSelectedTableId(response.order.tableId);
       setActiveOrders((currentOrders) => [response.order, ...currentOrders.filter((order) => order.id !== response.order.id)]);
@@ -369,14 +392,23 @@ export const AdminTableSalesPage = () => {
     setActionState("loading");
     setMessage(null);
     setErrorMessage(null);
+    if (!paymentIdempotencyKeyRef.current) {
+      paymentIdempotencyKeyRef.current = crypto.randomUUID();
+    }
 
     try {
-      const response = await ordersApi.confirmPayment(token, pendingPaymentOrder.id, {
-        amount: pendingPaymentOrder.total,
-        method: "CASH"
-      });
+      const response = await ordersApi.confirmPayment(
+        token,
+        pendingPaymentOrder.id,
+        {
+          amount: pendingPaymentOrder.total,
+          method: "CASH"
+        },
+        paymentIdempotencyKeyRef.current
+      );
       setSelectedOrder(response.order);
       setPendingPaymentOrder(null);
+      paymentIdempotencyKeyRef.current = null;
       setActiveOrders((currentOrders) => currentOrders.filter((order) => order.id !== response.order.id));
       setMessage(t(MessageKey.OrdersPaymentCompleted));
       setActionState("success");
@@ -505,6 +537,7 @@ export const AdminTableSalesPage = () => {
                         onRequestPayment={() => {
                           setMessage(null);
                           setErrorMessage(null);
+                          paymentIdempotencyKeyRef.current = crypto.randomUUID();
                           setPendingPaymentOrder(selectedOrder);
                         }}
                       />
@@ -635,7 +668,10 @@ export const AdminTableSalesPage = () => {
           order={pendingPaymentOrder}
           isSubmitting={actionState === "loading"}
           error={actionState === "error" ? errorMessage : null}
-          onCancel={() => setPendingPaymentOrder(null)}
+          onCancel={() => {
+            paymentIdempotencyKeyRef.current = null;
+            setPendingPaymentOrder(null);
+          }}
           onConfirm={() => void confirmPayment()}
         />
       ) : null}

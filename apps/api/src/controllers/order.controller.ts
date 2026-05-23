@@ -21,6 +21,7 @@ import { confirmTenantOrderPayment } from "../services/payment.service.js";
 import { AppError } from "../shared/errors/app-error.js";
 import { ErrorCode } from "../shared/errors/error-catalog.js";
 import { created, ok } from "../shared/http/api-response.js";
+import { parseIdempotencyKey } from "../shared/http/idempotency.js";
 import { parseBody, parseParams, parseQuery } from "../shared/http/validation.js";
 
 const getTenantId = (request: Request): string => {
@@ -73,7 +74,8 @@ export const updateOrderItemsController = async (request: Request, response: Res
 export const confirmPaymentController = async (request: Request, response: Response) => {
   const params = parseParams(request, orderParamsSchema);
   const input = parseBody(request, confirmPaymentSchema);
-  const paymentResult = await confirmTenantOrderPayment(getTenantId(request), params.orderId, input);
+  const idempotencyKey = parseIdempotencyKey(request);
+  const paymentResult = await confirmTenantOrderPayment(getTenantId(request), params.orderId, input, idempotencyKey);
 
   ok(response, paymentResult);
 };
@@ -81,7 +83,8 @@ export const confirmPaymentController = async (request: Request, response: Respo
 export const createQrOrderController = async (request: Request, response: Response) => {
   const params = parseParams(request, qrOrderParamsSchema);
   const input = parseBody(request, createQrOrderSchema);
-  const order = await createQrOrder(params.tenantId, params.branchId, params.tableId, input);
+  const idempotencyKey = parseIdempotencyKey(request);
+  const order = await createQrOrder(params.tenantId, params.branchId, params.tableId, input, idempotencyKey);
 
   created(response, {
     order

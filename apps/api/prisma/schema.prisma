@@ -38,17 +38,23 @@ enum PaymentStatus {
   COMPLETED
 }
 
+enum IdempotencyAction {
+  CREATE_QR_ORDER
+  CONFIRM_PAYMENT
+}
+
 model Tenant {
-  id        String            @id @default(cuid())
-  name      String
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
-  admins    AdminUser[]
-  branches  Branch[]
-  tables    RestaurantTable[]
-  menus     Menu[]
-  orders    Order[]
-  payments  Payment[]
+  id              String            @id @default(cuid())
+  name            String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  admins          AdminUser[]
+  branches        Branch[]
+  tables          RestaurantTable[]
+  menus           Menu[]
+  orders          Order[]
+  payments        Payment[]
+  idempotencyKeys IdempotencyKey[]
 
   @@map("tenants")
 }
@@ -160,6 +166,22 @@ model Payment {
   @@index([tenantId, paidAt])
   @@index([tenantId, branchId, paidAt])
   @@map("payments")
+}
+
+model IdempotencyKey {
+  id          String            @id @default(cuid())
+  tenantId    String            @map("tenant_id")
+  action      IdempotencyAction
+  key         String            @db.VarChar(128)
+  requestHash String            @map("request_hash") @db.Char(64)
+  resourceId  String?           @map("resource_id") @db.VarChar(191)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, action, key])
+  @@index([tenantId, action])
+  @@map("idempotency_keys")
 }
 
 model OrderItem {

@@ -2,6 +2,7 @@ export const ErrorCode = {
   AdminNotFound: "ADMIN_NOT_FOUND",
   BranchNotEmpty: "BRANCH_NOT_EMPTY",
   BranchNotFound: "BRANCH_NOT_FOUND",
+  IdempotencyKeyConflict: "IDEMPOTENCY_KEY_CONFLICT",
   InternalError: "INTERNAL_ERROR",
   InvalidCredentials: "INVALID_CREDENTIALS",
   InvalidOrderCart: "INVALID_ORDER_CART",
@@ -46,6 +47,11 @@ export const errorCatalog = {
     code: ErrorCode.BranchNotFound,
     message: "Branch not found",
     statusCode: 404
+  },
+  [ErrorCode.IdempotencyKeyConflict]: {
+    code: ErrorCode.IdempotencyKeyConflict,
+    message: "Idempotency key was already used with a different request",
+    statusCode: 409
   },
   [ErrorCode.InternalError]: {
     code: ErrorCode.InternalError,

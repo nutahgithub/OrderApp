@@ -49,6 +49,13 @@ export const ordersApi = {
     httpRequest<OrderResponse>(`/admin/orders/${orderId}/items`, { method: "PATCH", token, body: JSON.stringify(body) }),
   updateStatus: (token: string, orderId: string, body: UpdateOrderStatusRequest) =>
     httpRequest<OrderResponse>(`/admin/orders/${orderId}/status`, { method: "PATCH", token, body: JSON.stringify(body) }),
-  confirmPayment: (token: string, orderId: string, body: ConfirmPaymentRequest) =>
-    httpRequest<PaymentResponse>(`/admin/orders/${orderId}/payment`, { method: "POST", token, body: JSON.stringify(body) })
+  confirmPayment: (token: string, orderId: string, body: ConfirmPaymentRequest, idempotencyKey: string) =>
+    httpRequest<PaymentResponse>(`/admin/orders/${orderId}/payment`, {
+      method: "POST",
+      token,
+      headers: {
+        "Idempotency-Key": idempotencyKey
+      },
+      body: JSON.stringify(body)
+    })
 };

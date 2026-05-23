@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Minus, Plus, ReceiptText, Store } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
@@ -22,6 +22,10 @@ type QrRouteParams = {
 
 type Cart = Record<string, number>;
 type RealtimeState = "idle" | "connecting" | "connected" | "fallback";
+type PendingIdempotencyKey = {
+  payloadSignature: string;
+  key: string;
+};
 
 export const CustomerQrEntryPage = () => {
   const { locale, t } = useI18n();
@@ -47,6 +51,7 @@ export const CustomerQrEntryPage = () => {
     | { status: "error"; message: string }
   >({ status: "idle" });
   const [realtimeState, setRealtimeState] = useState<RealtimeState>("idle");
+  const orderIdempotencyRef = useRef<PendingIdempotencyKey | null>(null);
   const trackedOrderId = orderState.status === "success" ? orderState.order.id : "";
 
   useEffect(() => {
@@ -249,17 +254,34 @@ export const CustomerQrEntryPage = () => {
       return;
     }
 
+    const orderPayload = {
+      items: cartItems.map((item) => ({
+        menuId: item.menu.id,
+        quantity: item.quantity
+      }))
+    };
+    const payloadSignature = JSON.stringify([...orderPayload.items].sort((left, right) => left.menuId.localeCompare(right.menuId)));
+
+    if (orderIdempotencyRef.current?.payloadSignature !== payloadSignature) {
+      orderIdempotencyRef.current = {
+        payloadSignature,
+        key: crypto.randomUUID()
+      };
+    }
+
     setOrderState({ status: "submitting" });
 
     try {
-      const response = await qrApi.createOrder(tenantId, branchId, tableId, {
-        items: cartItems.map((item) => ({
-          menuId: item.menu.id,
-          quantity: item.quantity
-        }))
-      });
+      const response = await qrApi.createOrder(
+        tenantId,
+        branchId,
+        tableId,
+        orderPayload,
+        orderIdempotencyRef.current.key
+      );
 
       setCart({});
+      orderIdempotencyRef.current = null;
       setOrderState({ status: "success", order: response.order });
     } catch (error: unknown) {
       setOrderState({ status: "error", message: getUserErrorMessage(error, MessageKey.RequestFailed, locale) });

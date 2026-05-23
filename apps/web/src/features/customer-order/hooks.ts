@@ -20,7 +20,8 @@ export const useQrMenusQuery = (tenantId: string, branchId: string, tableId: str
 
 export const useCreateQrOrderMutation = (tenantId: string, branchId: string, tableId: string) => {
   return useMutation({
-    mutationFn: (body: Parameters<typeof qrApi.createOrder>[3]) => qrApi.createOrder(tenantId, branchId, tableId, body)
+    mutationFn: (input: { body: Parameters<typeof qrApi.createOrder>[3]; idempotencyKey: string }) =>
+      qrApi.createOrder(tenantId, branchId, tableId, input.body, input.idempotencyKey)
   });
 };
 

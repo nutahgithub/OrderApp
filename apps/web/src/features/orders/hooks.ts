@@ -46,8 +46,8 @@ export const useConfirmPaymentMutation = (token: string | null, branchId: string
   const apiStatus = status === "ALL" ? undefined : status;
 
   return useMutation({
-    mutationFn: (input: { orderId: string; amount: string }) =>
-      ordersApi.confirmPayment(token ?? "", input.orderId, { amount: input.amount, method: "CASH" }),
+    mutationFn: (input: { orderId: string; amount: string; idempotencyKey: string }) =>
+      ordersApi.confirmPayment(token ?? "", input.orderId, { amount: input.amount, method: "CASH" }, input.idempotencyKey),
     onSuccess: (data, input) => {
       queryClient.setQueryData(queryKeys.order(input.orderId), { order: data.order });
       void queryClient.invalidateQueries({ queryKey: ["orders", branchId, apiStatus ?? "ALL"] });

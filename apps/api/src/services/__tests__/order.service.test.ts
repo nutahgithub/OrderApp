@@ -2,17 +2,26 @@ import type { Branch, Menu, Order, OrderItem, RestaurantTable } from "@prisma/cl
 import { OrderStatus, Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { findBranchByTenant } from "../../repositories/branch.repository.js";
+import {
+  attachIdempotencyResource,
+  createIdempotencyKey,
+  findIdempotencyKey
+} from "../../repositories/idempotency.repository.js";
 import { listActiveMenusByTenantAndIds } from "../../repositories/menu.repository.js";
 import {
   countOrdersByTenantBranch,
+  createOrderWithItems,
   findOrderByTenant,
   listOrdersByTenantBranch,
   replaceOrderItemsByTenant,
   updateOrderStatusByTenant
 } from "../../repositories/order.repository.js";
 import type { OrderRecord } from "../../repositories/order.repository.js";
+import { findTableQrEntry } from "../../repositories/table.repository.js";
 import { ErrorCode } from "../../shared/errors/error-catalog.js";
-import { getTenantOrderDetail, listTenantOrders, updateTenantOrderItems, updateTenantOrderStatus } from "../order.service.js";
+import { hashIdempotencyPayload } from "../../shared/http/idempotency.js";
+import { emitOrderCreated } from "../../shared/realtime/socket.js";
+import { createQrOrder, getTenantOrderDetail, listTenantOrders, updateTenantOrderItems, updateTenantOrderStatus } from "../order.service.js";
 
 vi.mock("../../shared/prisma/client.js", () => ({
   prisma: {
@@ -30,12 +39,28 @@ vi.mock("../../repositories/menu.repository.js", () => ({
   listActiveMenusByTenantAndIds: vi.fn()
 }));
 
+vi.mock("../../repositories/idempotency.repository.js", () => ({
+  attachIdempotencyResource: vi.fn(),
+  createIdempotencyKey: vi.fn(),
+  findIdempotencyKey: vi.fn()
+}));
+
 vi.mock("../../repositories/order.repository.js", () => ({
   countOrdersByTenantBranch: vi.fn(),
+  createOrderWithItems: vi.fn(),
   findOrderByTenant: vi.fn(),
   listOrdersByTenantBranch: vi.fn(),
   replaceOrderItemsByTenant: vi.fn(),
   updateOrderStatusByTenant: vi.fn()
+}));
+
+vi.mock("../../repositories/table.repository.js", () => ({
+  findTableQrEntry: vi.fn()
+}));
+
+vi.mock("../../shared/realtime/socket.js", () => ({
+  emitOrderCreated: vi.fn(),
+  emitOrderStatusUpdated: vi.fn()
 }));
 
 const branchFixture = (overrides: Partial<Branch> = {}): Branch => ({
@@ -123,6 +148,16 @@ const orderRecordFixture = (overrides: Partial<OrderRecord> = {}): OrderRecord =
 describe("order service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(createIdempotencyKey).mockResolvedValue({
+      id: "idem-1",
+      tenantId: "tenant-1",
+      action: "CREATE_QR_ORDER",
+      key: "order-key-1",
+      requestHash: "hash",
+      resourceId: null,
+      createdAt: new Date("2026-05-13T10:00:00.000Z"),
+      updatedAt: new Date("2026-05-13T10:00:00.000Z")
+    });
   });
 
   it("lists orders for a branch inside the tenant scope", async () => {
@@ -297,5 +332,110 @@ describe("order service", () => {
       code: ErrorCode.OrderCannotBeEdited
     });
     expect(replaceOrderItemsByTenant).not.toHaveBeenCalled();
+  });
+
+  it("creates a QR order once for a new idempotency key", async () => {
+    const createdOrder = orderRecordFixture();
+    vi.mocked(findIdempotencyKey).mockResolvedValue(null);
+    vi.mocked(findTableQrEntry).mockResolvedValue({
+      ...tableFixture(),
+      branch: {
+        id: "branch-1",
+        name: "Main Branch"
+      }
+    });
+    vi.mocked(listActiveMenusByTenantAndIds).mockResolvedValue([menuFixture()]);
+    vi.mocked(createOrderWithItems).mockResolvedValue(createdOrder);
+
+    const result = await createQrOrder(
+      "tenant-1",
+      "branch-1",
+      "table-1",
+      {
+        items: [{ menuId: "menu-1", quantity: 2 }]
+      },
+      "order-key-1"
+    );
+
+    expect(createIdempotencyKey).toHaveBeenCalledWith(expect.any(Object), {
+      tenantId: "tenant-1",
+      action: "CREATE_QR_ORDER",
+      key: "order-key-1",
+      requestHash: expect.any(String)
+    });
+    expect(createOrderWithItems).toHaveBeenCalledTimes(1);
+    expect(attachIdempotencyResource).toHaveBeenCalledWith(expect.any(Object), {
+      id: "idem-1",
+      resourceId: "order-1"
+    });
+    expect(result.id).toBe("order-1");
+    expect(emitOrderCreated).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns the existing QR order when retrying with the same idempotency key and payload", async () => {
+    const requestHash = hashIdempotencyPayload({
+      branchId: "branch-1",
+      tableId: "table-1",
+      items: [{ menuId: "menu-1", quantity: 2 }]
+    });
+    vi.mocked(findIdempotencyKey).mockResolvedValue({
+      id: "idem-1",
+      tenantId: "tenant-1",
+      action: "CREATE_QR_ORDER",
+      key: "order-key-1",
+      requestHash,
+      resourceId: "order-1",
+      createdAt: new Date("2026-05-13T10:00:00.000Z"),
+      updatedAt: new Date("2026-05-13T10:00:00.000Z")
+    });
+    vi.mocked(findOrderByTenant).mockResolvedValue(orderRecordFixture());
+
+    const result = await createQrOrder(
+      "tenant-1",
+      "branch-1",
+      "table-1",
+      {
+        items: [{ menuId: "menu-1", quantity: 2 }]
+      },
+      "order-key-1"
+    );
+
+    const firstCall = vi.mocked(findIdempotencyKey).mock.calls[0]?.[1];
+    expect(firstCall).toEqual({
+      tenantId: "tenant-1",
+      action: "CREATE_QR_ORDER",
+      key: "order-key-1"
+    });
+    expect(createOrderWithItems).not.toHaveBeenCalled();
+    expect(emitOrderCreated).not.toHaveBeenCalled();
+    expect(result.id).toBe("order-1");
+  });
+
+  it("rejects a reused QR order idempotency key with a different payload", async () => {
+    vi.mocked(findIdempotencyKey).mockResolvedValue({
+      id: "idem-1",
+      tenantId: "tenant-1",
+      action: "CREATE_QR_ORDER",
+      key: "order-key-1",
+      requestHash: "different-hash",
+      resourceId: "order-1",
+      createdAt: new Date("2026-05-13T10:00:00.000Z"),
+      updatedAt: new Date("2026-05-13T10:00:00.000Z")
+    });
+
+    await expect(
+      createQrOrder(
+        "tenant-1",
+        "branch-1",
+        "table-1",
+        {
+          items: [{ menuId: "menu-1", quantity: 3 }]
+        },
+        "order-key-1"
+      )
+    ).rejects.toMatchObject({
+      code: ErrorCode.IdempotencyKeyConflict
+    });
+    expect(createOrderWithItems).not.toHaveBeenCalled();
   });
 });
