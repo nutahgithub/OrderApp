@@ -16,6 +16,7 @@ export const ErrorCode = {
   OrderCannotBePaid: "ORDER_CANNOT_BE_PAID",
   OrderNotFound: "ORDER_NOT_FOUND",
   PaymentAmountMismatch: "PAYMENT_AMOUNT_MISMATCH",
+  RateLimitExceeded: "RATE_LIMIT_EXCEEDED",
   RouteNotFound: "ROUTE_NOT_FOUND",
   TableNotFound: "TABLE_NOT_FOUND",
   TokenExpired: "TOKEN_EXPIRED",
@@ -115,6 +116,11 @@ export const errorCatalog = {
     code: ErrorCode.PaymentAmountMismatch,
     message: "Payment amount must match order total",
     statusCode: 400
+  },
+  [ErrorCode.RateLimitExceeded]: {
+    code: ErrorCode.RateLimitExceeded,
+    message: "Too many requests. Please try again later.",
+    statusCode: 429
   },
   [ErrorCode.RouteNotFound]: {
     code: ErrorCode.RouteNotFound,

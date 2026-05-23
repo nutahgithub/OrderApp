@@ -17,6 +17,7 @@ const errorCodeToMessageKey: Record<string, MessageKey> = {
   ORDER_CANNOT_BE_PAID: MessageKey.OrdersPaymentUnavailableCancelled,
   ORDER_NOT_FOUND: MessageKey.ResourceNotFound,
   PAYMENT_AMOUNT_MISMATCH: MessageKey.OrdersPaymentAmountMismatch,
+  RATE_LIMIT_EXCEEDED: MessageKey.RateLimitExceeded,
   TABLE_NOT_FOUND: MessageKey.ResourceNotFound,
   TOKEN_EXPIRED: MessageKey.AuthSessionExpired,
   VALIDATION_ERROR: MessageKey.ValidationFailed

@@ -9,6 +9,7 @@ import {
   updateOrderStatusController
 } from "../controllers/order.controller.js";
 import { requireAdminAuth } from "../middlewares/auth.middleware.js";
+import { publicOrderRateLimit } from "../middlewares/rate-limit.middleware.js";
 import { asyncHandler } from "../shared/http/async-handler.js";
 
 export const orderRouter = Router();
@@ -22,5 +23,5 @@ orderRouter.post("/:orderId/payment", asyncHandler(confirmPaymentController));
 
 export const publicOrderRouter = Router();
 
-publicOrderRouter.post("/:tenantId/:branchId/:tableId/orders", asyncHandler(createQrOrderController));
+publicOrderRouter.post("/:tenantId/:branchId/:tableId/orders", publicOrderRateLimit, asyncHandler(createQrOrderController));
 publicOrderRouter.get("/:tenantId/:branchId/:tableId/orders/:orderId", asyncHandler(getQrOrderController));
