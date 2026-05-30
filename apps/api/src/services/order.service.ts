@@ -1,6 +1,5 @@
-import { Prisma } from "@prisma/client";
 import type { OrderItem } from "@prisma/client";
-import { IdempotencyAction } from "@prisma/client";
+import { IdempotencyAction, OrderStatus, Prisma } from "@prisma/client";
 import { findBranchByTenant } from "../repositories/branch.repository.js";
 import {
   attachIdempotencyResource,
@@ -70,6 +69,22 @@ const resolveOrderDateRange = (input: ListOrdersInput): { startDate?: Date; endD
 
 const calculateLineTotal = (item: Pick<OrderItem, "quantity" | "unitPrice">): string => {
   return item.unitPrice.mul(new Prisma.Decimal(item.quantity)).toFixed(2);
+};
+
+const validOrderStatusTransitions: Record<OrderStatus, readonly OrderStatus[]> = {
+  [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+  [OrderStatus.CONFIRMED]: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
+  [OrderStatus.PREPARING]: [OrderStatus.READY, OrderStatus.CANCELLED],
+  [OrderStatus.READY]: [OrderStatus.SERVED, OrderStatus.CANCELLED],
+  [OrderStatus.SERVED]: [],
+  [OrderStatus.CANCELLED]: [],
+  [OrderStatus.PAID]: []
+};
+
+const assertOrderStatusTransitionAllowed = (currentStatus: OrderStatus, nextStatus: OrderStatus): void => {
+  if (!validOrderStatusTransitions[currentStatus].includes(nextStatus)) {
+    throw new AppError(ErrorCode.OrderInvalidStatusTransition);
+  }
 };
 
 const normalizeOrderItemsForIdempotency = (input: CreateQrOrderInput) => {
@@ -418,15 +433,30 @@ export const updateTenantOrderStatus = async (
   orderId: string,
   input: UpdateOrderStatusInput
 ): Promise<OrderDetailDto> => {
-  const order = await updateOrderStatusByTenant(prisma, {
-    tenantId,
-    orderId,
-    status: input.status
-  });
+  const order = await prisma.$transaction(async (tx) => {
+    const currentOrder = await findOrderByTenant(tx, {
+      tenantId,
+      orderId
+    });
 
-  if (!order) {
-    throw new AppError(ErrorCode.OrderNotFound);
-  }
+    if (!currentOrder) {
+      throw new AppError(ErrorCode.OrderNotFound);
+    }
+
+    assertOrderStatusTransitionAllowed(currentOrder.status, input.status);
+
+    const updatedOrder = await updateOrderStatusByTenant(tx, {
+      tenantId,
+      orderId,
+      status: input.status
+    });
+
+    if (!updatedOrder) {
+      throw new AppError(ErrorCode.OrderNotFound);
+    }
+
+    return updatedOrder;
+  });
 
   logger.info("order_status_updated", {
     tenantId,

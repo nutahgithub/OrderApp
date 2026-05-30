@@ -1,7 +1,7 @@
 import { Banknote, ReceiptText } from "lucide-react";
 import { Button } from "../../../components/ui/Button";
 import { StatusPill } from "../../../components/ui/StatusPill";
-import type { OrderDetail, UpdateOrderStatusRequest } from "../../../lib/api/types";
+import type { OrderDetail, OrderStatus, UpdateOrderStatusRequest } from "../../../lib/api/types";
 import { formatDateTime } from "../../../lib/format/date";
 import { useI18n } from "../../../lib/i18n/I18nContext";
 import { MessageKey } from "../../../lib/i18n/messages";
@@ -37,6 +37,16 @@ const getStatusButtonClassName = (status: UpdateOrderStatusRequest["status"]): s
   return classByStatus[status];
 };
 
+const validStatusActionsByCurrentStatus: Record<OrderStatus, UpdateOrderStatusRequest["status"][]> = {
+  PENDING: ["CONFIRMED", "CANCELLED"],
+  CONFIRMED: ["PREPARING", "CANCELLED"],
+  PREPARING: ["READY", "CANCELLED"],
+  READY: ["SERVED", "CANCELLED"],
+  SERVED: [],
+  CANCELLED: [],
+  PAID: []
+};
+
 export const OrderActionPanel = ({
   order,
   statusOptions,
@@ -48,6 +58,9 @@ export const OrderActionPanel = ({
 }: OrderActionPanelProps) => {
   const { t } = useI18n();
   const isPaymentAvailable = order.status !== "PAID" && order.status !== "CANCELLED";
+  const availableStatusOptions = statusOptions.filter((status) =>
+    validStatusActionsByCurrentStatus[order.status].includes(status)
+  );
 
   const getOrderStatusLabel = (status: OrderDetail["status"] | UpdateOrderStatusRequest["status"]): string => {
     const labelByStatus: Record<OrderDetail["status"], MessageKey> = {
@@ -117,20 +130,21 @@ export const OrderActionPanel = ({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(132px,1fr))] gap-3">
-        {statusOptions.map((status) => (
-          <Button
-            type="button"
-            className={`mt-0 min-h-[52px] ${getStatusButtonClassName(status)}`}
-            disabled={disabled || confirmingPayment || updatingStatus !== null || order.status === status || order.status === "PAID"}
-            key={status}
-            onClick={() => onStatusUpdate(status)}
-          >
-            {updatingStatus === status ? t(MessageKey.Saving) : getOrderStatusLabel(status)}
-          </Button>
-        ))}
-      </div>
+      {availableStatusOptions.length > 0 ? (
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(132px,1fr))] gap-3">
+          {availableStatusOptions.map((status) => (
+            <Button
+              type="button"
+              className={`mt-0 min-h-[52px] ${getStatusButtonClassName(status)}`}
+              disabled={disabled || confirmingPayment || updatingStatus !== null}
+              key={status}
+              onClick={() => onStatusUpdate(status)}
+            >
+              {updatingStatus === status ? t(MessageKey.Saving) : getOrderStatusLabel(status)}
+            </Button>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 };
-

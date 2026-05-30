@@ -20,7 +20,7 @@ import type { OrderRecord } from "../../repositories/order.repository.js";
 import { findTableQrEntry } from "../../repositories/table.repository.js";
 import { ErrorCode } from "../../shared/errors/error-catalog.js";
 import { hashIdempotencyPayload } from "../../shared/http/idempotency.js";
-import { emitOrderCreated } from "../../shared/realtime/socket.js";
+import { emitOrderCreated, emitOrderStatusUpdated } from "../../shared/realtime/socket.js";
 import { createQrOrder, getTenantOrderDetail, listTenantOrders, updateTenantOrderItems, updateTenantOrderStatus } from "../order.service.js";
 
 vi.mock("../../shared/prisma/client.js", () => ({
@@ -243,6 +243,11 @@ describe("order service", () => {
   });
 
   it("updates order status inside the tenant scope", async () => {
+    vi.mocked(findOrderByTenant).mockResolvedValue(
+      orderRecordFixture({
+        status: OrderStatus.PENDING
+      })
+    );
     vi.mocked(updateOrderStatusByTenant).mockResolvedValue(
       orderRecordFixture({
         status: OrderStatus.CONFIRMED
@@ -259,10 +264,11 @@ describe("order service", () => {
       status: "CONFIRMED"
     });
     expect(result.status).toBe(OrderStatus.CONFIRMED);
+    expect(emitOrderStatusUpdated).toHaveBeenCalledTimes(1);
   });
 
   it("returns ORDER_NOT_FOUND when updating an order outside the tenant", async () => {
-    vi.mocked(updateOrderStatusByTenant).mockResolvedValue(null);
+    vi.mocked(findOrderByTenant).mockResolvedValue(null);
 
     await expect(
       updateTenantOrderStatus("tenant-1", "missing-order", {
@@ -271,6 +277,58 @@ describe("order service", () => {
     ).rejects.toMatchObject({
       code: ErrorCode.OrderNotFound
     });
+    expect(updateOrderStatusByTenant).not.toHaveBeenCalled();
+  });
+
+  it("rejects jumping order status steps", async () => {
+    vi.mocked(findOrderByTenant).mockResolvedValue(
+      orderRecordFixture({
+        status: OrderStatus.PENDING
+      })
+    );
+
+    await expect(
+      updateTenantOrderStatus("tenant-1", "order-1", {
+        status: "READY"
+      })
+    ).rejects.toMatchObject({
+      code: ErrorCode.OrderInvalidStatusTransition
+    });
+    expect(updateOrderStatusByTenant).not.toHaveBeenCalled();
+  });
+
+  it("rejects moving order status backward", async () => {
+    vi.mocked(findOrderByTenant).mockResolvedValue(
+      orderRecordFixture({
+        status: OrderStatus.READY
+      })
+    );
+
+    await expect(
+      updateTenantOrderStatus("tenant-1", "order-1", {
+        status: "PREPARING"
+      })
+    ).rejects.toMatchObject({
+      code: ErrorCode.OrderInvalidStatusTransition
+    });
+    expect(updateOrderStatusByTenant).not.toHaveBeenCalled();
+  });
+
+  it("rejects status updates after an order is paid", async () => {
+    vi.mocked(findOrderByTenant).mockResolvedValue(
+      orderRecordFixture({
+        status: OrderStatus.PAID
+      })
+    );
+
+    await expect(
+      updateTenantOrderStatus("tenant-1", "order-1", {
+        status: "CONFIRMED"
+      })
+    ).rejects.toMatchObject({
+      code: ErrorCode.OrderInvalidStatusTransition
+    });
+    expect(updateOrderStatusByTenant).not.toHaveBeenCalled();
   });
 
   it("updates editable order items and recalculates the total", async () => {

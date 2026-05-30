@@ -15,6 +15,7 @@ export const ErrorCode = {
   OrderAlreadyPaid: "ORDER_ALREADY_PAID",
   OrderCannotBeEdited: "ORDER_CANNOT_BE_EDITED",
   OrderCannotBePaid: "ORDER_CANNOT_BE_PAID",
+  OrderInvalidStatusTransition: "ORDER_INVALID_STATUS_TRANSITION",
   OrderNotFound: "ORDER_NOT_FOUND",
   PaymentAmountMismatch: "PAYMENT_AMOUNT_MISMATCH",
   RateLimitExceeded: "RATE_LIMIT_EXCEEDED",
@@ -111,6 +112,11 @@ export const errorCatalog = {
   [ErrorCode.OrderCannotBePaid]: {
     code: ErrorCode.OrderCannotBePaid,
     message: "Cancelled order cannot be paid",
+    statusCode: 409
+  },
+  [ErrorCode.OrderInvalidStatusTransition]: {
+    code: ErrorCode.OrderInvalidStatusTransition,
+    message: "Order status transition is not allowed",
     statusCode: 409
   },
   [ErrorCode.OrderNotFound]: {
