@@ -7,15 +7,16 @@ import {
   updateMenuController
 } from "../controllers/menu.controller.js";
 import { requireAdminAuth } from "../middlewares/auth.middleware.js";
+import { requireAdminRole } from "../middlewares/rbac.middleware.js";
 import { asyncHandler } from "../shared/http/async-handler.js";
 
 export const menuRouter = Router();
 
 menuRouter.use(requireAdminAuth);
 menuRouter.get("/", asyncHandler(listMenusController));
-menuRouter.post("/", asyncHandler(createMenuController));
-menuRouter.patch("/:menuId", asyncHandler(updateMenuController));
-menuRouter.delete("/:menuId", asyncHandler(deleteMenuController));
+menuRouter.post("/", requireAdminRole("MANAGER"), asyncHandler(createMenuController));
+menuRouter.patch("/:menuId", requireAdminRole("MANAGER"), asyncHandler(updateMenuController));
+menuRouter.delete("/:menuId", requireAdminRole("MANAGER"), asyncHandler(deleteMenuController));
 
 export const publicMenuRouter = Router();
 

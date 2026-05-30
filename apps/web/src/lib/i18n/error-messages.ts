@@ -5,6 +5,7 @@ import type { Locale } from "./messages";
 const errorCodeToMessageKey: Record<string, MessageKey> = {
   BRANCH_NOT_EMPTY: MessageKey.BranchesDeleteBlocked,
   BRANCH_NOT_FOUND: MessageKey.ResourceNotFound,
+  FORBIDDEN: MessageKey.Forbidden,
   INTERNAL_ERROR: MessageKey.SystemUnavailable,
   INVALID_CREDENTIALS: MessageKey.AuthInvalidCredentials,
   INVALID_UPLOAD: MessageKey.MenusImageInvalid,

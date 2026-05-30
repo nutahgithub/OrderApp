@@ -3,6 +3,7 @@ export const ErrorCode = {
   BranchNotEmpty: "BRANCH_NOT_EMPTY",
   BranchNotFound: "BRANCH_NOT_FOUND",
   IdempotencyKeyConflict: "IDEMPOTENCY_KEY_CONFLICT",
+  Forbidden: "FORBIDDEN",
   InternalError: "INTERNAL_ERROR",
   InvalidCredentials: "INVALID_CREDENTIALS",
   InvalidOrderCart: "INVALID_ORDER_CART",
@@ -53,6 +54,11 @@ export const errorCatalog = {
     code: ErrorCode.IdempotencyKeyConflict,
     message: "Idempotency key was already used with a different request",
     statusCode: 409
+  },
+  [ErrorCode.Forbidden]: {
+    code: ErrorCode.Forbidden,
+    message: "You do not have permission to perform this action",
+    statusCode: 403
   },
   [ErrorCode.InternalError]: {
     code: ErrorCode.InternalError,

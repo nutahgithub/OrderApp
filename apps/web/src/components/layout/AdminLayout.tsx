@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { BellRing, Building2, Gauge, LogOut, MenuSquare, ShoppingBag, Store, Table2, Volume2 } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthContext";
+import { isRoleAllowed, managerRoles, staffOperationRoles } from "../../features/auth/rbac";
 import { branchesApi } from "../../features/branches/api";
-import type { Order } from "../../lib/api/types";
+import type { AdminRole, Order } from "../../lib/api/types";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
 import { createRealtimeSocket, RealtimeEvent } from "../../lib/realtime/socket";
@@ -25,13 +26,18 @@ type AudioWindow = Window & {
 let notificationAudioContext: AudioContext | null = null;
 
 const navItems = [
-  { icon: Gauge, labelKey: MessageKey.NavDashboard, to: "/admin/dashboard" },
-  { icon: Building2, labelKey: MessageKey.NavBranches, to: "/admin/branches" },
-  { icon: Table2, labelKey: MessageKey.NavTables, to: "/admin/tables" },
-  { icon: MenuSquare, labelKey: MessageKey.NavMenus, to: "/admin/menus" },
-  { icon: Table2, labelKey: MessageKey.NavTableSales, to: "/admin/table-sales" },
-  { icon: ShoppingBag, labelKey: MessageKey.NavOrders, to: "/admin/orders" }
-];
+  { icon: Gauge, labelKey: MessageKey.NavDashboard, to: "/admin/dashboard", allowedRoles: managerRoles },
+  { icon: Building2, labelKey: MessageKey.NavBranches, to: "/admin/branches", allowedRoles: managerRoles },
+  { icon: Table2, labelKey: MessageKey.NavTables, to: "/admin/tables", allowedRoles: managerRoles },
+  { icon: MenuSquare, labelKey: MessageKey.NavMenus, to: "/admin/menus", allowedRoles: managerRoles },
+  { icon: Table2, labelKey: MessageKey.NavTableSales, to: "/admin/table-sales", allowedRoles: staffOperationRoles },
+  { icon: ShoppingBag, labelKey: MessageKey.NavOrders, to: "/admin/orders", allowedRoles: staffOperationRoles }
+] satisfies Array<{
+  icon: typeof Gauge;
+  labelKey: MessageKey;
+  to: string;
+  allowedRoles: AdminRole[];
+}>;
 
 const formatCurrency = (price: string): string => {
   return new Intl.NumberFormat("vi-VN", {
@@ -244,7 +250,7 @@ export const AdminLayout = () => {
           ) : null}
         </div>
         <nav className="grid gap-1.5 max-[780px]:flex max-[780px]:overflow-x-auto max-[780px]:pb-1" aria-label="Admin navigation">
-          {navItems.map((item) => {
+          {navItems.filter((item) => isRoleAllowed(admin?.role, item.allowedRoles)).map((item) => {
             const Icon = item.icon;
 
             return (
