@@ -7,7 +7,6 @@ import { ErrorCode } from "../shared/errors/error-catalog.js";
 import type { UploadImageDto, UploadImageInput } from "../types/upload.types.js";
 import { recordAuditLog } from "./audit-log.service.js";
 
-const maxImageBytes = 1_000_000;
 const s3Service = "s3";
 
 const extensionByContentType: Record<UploadImageInput["contentType"], string> = {
@@ -15,6 +14,36 @@ const extensionByContentType: Record<UploadImageInput["contentType"], string> = 
   "image/png": "png",
   "image/webp": "webp"
 };
+
+const contentTypesBySignature = [
+  {
+    contentType: "image/jpeg",
+    matches: (buffer: Buffer) => buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff
+  },
+  {
+    contentType: "image/png",
+    matches: (buffer: Buffer) =>
+      buffer.length >= 8 &&
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47 &&
+      buffer[4] === 0x0d &&
+      buffer[5] === 0x0a &&
+      buffer[6] === 0x1a &&
+      buffer[7] === 0x0a
+  },
+  {
+    contentType: "image/webp",
+    matches: (buffer: Buffer) =>
+      buffer.length >= 12 &&
+      buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+      buffer.subarray(8, 12).toString("ascii") === "WEBP"
+  }
+] satisfies Array<{
+  contentType: UploadImageInput["contentType"];
+  matches: (buffer: Buffer) => boolean;
+}>;
 
 const sha256Hex = (value: string | Buffer): string => {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -32,6 +61,11 @@ const encodeS3Path = (value: string): string => {
 };
 
 const buildObjectKey = (tenantId: string, fileName: string, contentType: UploadImageInput["contentType"]): string => {
+  const safeTenantId = tenantId
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
   const safeBaseName = fileName
     .replace(/\.[^.]+$/, "")
     .toLowerCase()
@@ -40,17 +74,28 @@ const buildObjectKey = (tenantId: string, fileName: string, contentType: UploadI
     .slice(0, 60);
   const suffix = crypto.randomUUID();
 
-  return `tenants/${tenantId}/menus/${safeBaseName || "menu-image"}-${suffix}.${extensionByContentType[contentType]}`;
+  return `tenants/${safeTenantId || "tenant"}/menus/${safeBaseName || "menu-image"}-${suffix}.${extensionByContentType[contentType]}`;
 };
 
 const decodeImage = (input: UploadImageInput): Buffer => {
   const imageBuffer = Buffer.from(input.dataBase64, "base64");
 
-  if (imageBuffer.length === 0 || imageBuffer.length > maxImageBytes) {
+  if (imageBuffer.length === 0 || imageBuffer.length > env.UPLOAD_MAX_IMAGE_BYTES) {
     throw new AppError(ErrorCode.InvalidUpload, {
       details: {
-        maxImageBytes,
+        maxImageBytes: env.UPLOAD_MAX_IMAGE_BYTES,
         actualImageBytes: imageBuffer.length
+      }
+    });
+  }
+
+  const detectedContentType = contentTypesBySignature.find((signature) => signature.matches(imageBuffer))?.contentType;
+
+  if (detectedContentType !== input.contentType) {
+    throw new AppError(ErrorCode.InvalidUpload, {
+      details: {
+        declaredContentType: input.contentType,
+        detectedContentType: detectedContentType ?? null
       }
     });
   }
@@ -64,7 +109,14 @@ const buildPublicUrl = (baseUrl: string, ...parts: string[]): string => {
 
 const uploadLocalImage = async (key: string, imageBuffer: Buffer): Promise<string> => {
   const uploadRoot = path.resolve(process.cwd(), env.LOCAL_UPLOAD_DIR);
-  const targetPath = path.join(uploadRoot, key);
+  const targetPath = path.resolve(uploadRoot, key);
+
+  if (!targetPath.startsWith(`${uploadRoot}${path.sep}`)) {
+    throw new AppError(ErrorCode.InvalidUpload, {
+      message: "Invalid upload path"
+    });
+  }
+
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
   await fs.writeFile(targetPath, imageBuffer);
 

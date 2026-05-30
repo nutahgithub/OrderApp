@@ -54,6 +54,7 @@ const envSchema = z.object({
   WEB_APP_URL: z.string().url().default("http://localhost:5173"),
   API_PUBLIC_URL: z.string().url().default("http://localhost:4000"),
   UPLOAD_STORAGE_PROVIDER: z.enum(["local", "minio"]).default("local"),
+  UPLOAD_MAX_IMAGE_BYTES: z.coerce.number().int().positive().default(1_000_000),
   LOCAL_UPLOAD_DIR: z.string().min(1).default("uploads"),
   LOCAL_UPLOAD_PUBLIC_PATH: z.string().min(1).default("/uploads"),
   MINIO_ENDPOINT: z.string().url().default("http://localhost:9000"),

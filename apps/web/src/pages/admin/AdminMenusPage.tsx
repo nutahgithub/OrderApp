@@ -31,6 +31,7 @@ type EditingMenu = {
 };
 
 const maxCompressedImageBytes = 1_000_000;
+const acceptedImageTypes = ["image/jpeg", "image/png", "image/webp"] as const;
 const menusPerPage = 12;
 
 const formatCurrency = (price: string): string => {
@@ -124,7 +125,7 @@ const compressImageForUpload = async (
   file: File,
   translate: (key: MessageKey) => string
 ): Promise<{ fileName: string; contentType: "image/jpeg"; dataBase64: string }> => {
-  if (!file.type.startsWith("image/")) {
+  if (!acceptedImageTypes.some((contentType) => contentType === file.type)) {
     throw new Error(translate(MessageKey.MenusImageInvalid));
   }
 

@@ -31,6 +31,7 @@ WEB_APP_URL="https://your-domain.com"
 API_PUBLIC_URL="https://api.your-domain.com"
 VITE_API_BASE_URL="https://api.your-domain.com"
 LOG_LEVEL=info
+UPLOAD_MAX_IMAGE_BYTES=1000000
 ```
 
 Lưu ý:
@@ -39,6 +40,7 @@ Lưu ý:
 - `WEB_APP_URL` phải đúng origin của frontend để CORS hoạt động.
 - `VITE_API_BASE_URL` được bake vào web image lúc build, đổi API URL thì phải build lại web image.
 - Không dùng `local` upload nếu production chạy nhiều API instances; nên chuyển sang object storage hoặc MinIO/S3-compatible storage.
+- `UPLOAD_MAX_IMAGE_BYTES` là giới hạn dung lượng ảnh sau khi decode base64; giữ thấp cho beta để tránh upload quá tải API.
 
 ## Build Image
 
