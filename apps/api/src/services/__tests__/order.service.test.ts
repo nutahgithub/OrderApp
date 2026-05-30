@@ -434,6 +434,65 @@ describe("order service", () => {
     expect(emitOrderCreated).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects a QR order when tenant, branch, and table context does not match", async () => {
+    vi.mocked(findIdempotencyKey).mockResolvedValue(null);
+    vi.mocked(findTableQrEntry).mockResolvedValue(null);
+
+    await expect(
+      createQrOrder(
+        "tenant-1",
+        "branch-from-other-tenant",
+        "table-from-other-tenant",
+        {
+          items: [{ menuId: "menu-1", quantity: 2 }]
+        },
+        "order-key-1"
+      )
+    ).rejects.toMatchObject({
+      code: ErrorCode.TableNotFound
+    });
+
+    expect(findTableQrEntry).toHaveBeenCalledWith(expect.any(Object), {
+      tenantId: "tenant-1",
+      branchId: "branch-from-other-tenant",
+      tableId: "table-from-other-tenant"
+    });
+    expect(listActiveMenusByTenantAndIds).not.toHaveBeenCalled();
+    expect(createOrderWithItems).not.toHaveBeenCalled();
+    expect(emitOrderCreated).not.toHaveBeenCalled();
+  });
+
+  it("rejects a QR order for a disabled table without reading menu data", async () => {
+    vi.mocked(findIdempotencyKey).mockResolvedValue(null);
+    vi.mocked(findTableQrEntry).mockResolvedValue({
+      ...tableFixture({
+        status: "DISABLED"
+      }),
+      branch: {
+        id: "branch-1",
+        name: "Main Branch"
+      }
+    });
+
+    await expect(
+      createQrOrder(
+        "tenant-1",
+        "branch-1",
+        "table-1",
+        {
+          items: [{ menuId: "menu-1", quantity: 2 }]
+        },
+        "order-key-1"
+      )
+    ).rejects.toMatchObject({
+      code: ErrorCode.TableNotFound
+    });
+
+    expect(listActiveMenusByTenantAndIds).not.toHaveBeenCalled();
+    expect(createOrderWithItems).not.toHaveBeenCalled();
+    expect(emitOrderCreated).not.toHaveBeenCalled();
+  });
+
   it("returns the existing QR order when retrying with the same idempotency key and payload", async () => {
     const requestHash = hashIdempotencyPayload({
       branchId: "branch-1",
