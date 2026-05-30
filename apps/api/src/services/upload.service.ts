@@ -5,6 +5,7 @@ import { env } from "../config/env.js";
 import { AppError } from "../shared/errors/app-error.js";
 import { ErrorCode } from "../shared/errors/error-catalog.js";
 import type { UploadImageDto, UploadImageInput } from "../types/upload.types.js";
+import { recordAuditLog } from "./audit-log.service.js";
 
 const maxImageBytes = 1_000_000;
 const s3Service = "s3";
@@ -211,13 +212,28 @@ const uploadMinioImage = async (
   return buildPublicUrl(env.MINIO_PUBLIC_URL, env.MINIO_BUCKET, key);
 };
 
-export const uploadMenuImage = async (tenantId: string, input: UploadImageInput): Promise<UploadImageDto> => {
+export const uploadMenuImage = async (
+  tenantId: string,
+  input: UploadImageInput,
+  actorAdminId?: string
+): Promise<UploadImageDto> => {
   const imageBuffer = decodeImage(input);
   const key = buildObjectKey(tenantId, input.fileName, input.contentType);
   const url =
     env.UPLOAD_STORAGE_PROVIDER === "minio"
       ? await uploadMinioImage(key, imageBuffer, input.contentType)
       : await uploadLocalImage(key, imageBuffer);
+  await recordAuditLog({
+    tenantId,
+    actorAdminId,
+    action: "MENU_IMAGE_UPLOADED",
+    resourceType: "UPLOAD",
+    resourceId: key,
+    metadata: {
+      contentType: input.contentType,
+      sizeBytes: imageBuffer.length
+    }
+  });
 
   return {
     url,

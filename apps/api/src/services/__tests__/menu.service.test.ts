@@ -33,6 +33,10 @@ vi.mock("../../repositories/table.repository.js", () => ({
   findTableQrEntry: vi.fn()
 }));
 
+vi.mock("../audit-log.service.js", () => ({
+  recordAuditLog: vi.fn()
+}));
+
 const menuFixture = (overrides: Partial<Menu> = {}): Menu => ({
   id: "menu-1",
   tenantId: "tenant-1",

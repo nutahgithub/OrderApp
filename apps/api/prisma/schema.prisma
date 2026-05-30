@@ -43,12 +43,38 @@ enum IdempotencyAction {
   CONFIRM_PAYMENT
 }
 
+enum AuditAction {
+  ADMIN_LOGIN
+  BRANCH_CREATED
+  BRANCH_UPDATED
+  BRANCH_DELETED
+  TABLE_CREATED
+  TABLE_UPDATED
+  MENU_CREATED
+  MENU_UPDATED
+  MENU_DELETED
+  ORDER_STATUS_UPDATED
+  PAYMENT_CONFIRMED
+  MENU_IMAGE_UPLOADED
+}
+
+enum AuditResourceType {
+  ADMIN_USER
+  BRANCH
+  TABLE
+  MENU
+  ORDER
+  PAYMENT
+  UPLOAD
+}
+
 model Tenant {
   id              String            @id @default(cuid())
   name            String
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   admins          AdminUser[]
+  auditLogs       AuditLog[]
   branches        Branch[]
   tables          RestaurantTable[]
   menus           Menu[]
@@ -69,10 +95,30 @@ model AdminUser {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  auditLogs    AuditLog[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
   @@map("admin_users")
+}
+
+model AuditLog {
+  id           String            @id @default(cuid())
+  tenantId     String            @map("tenant_id")
+  actorAdminId String?           @map("actor_admin_id")
+  action       AuditAction
+  resourceType AuditResourceType @map("resource_type")
+  resourceId   String            @map("resource_id")
+  metadata     Json?
+  createdAt    DateTime          @default(now()) @map("created_at")
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actorAdmin   AdminUser?        @relation(fields: [actorAdminId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, action, createdAt])
+  @@index([tenantId, resourceType, resourceId])
+  @@index([actorAdminId])
+  @@map("audit_logs")
 }
 
 model Branch {

@@ -32,6 +32,14 @@ const getTenantId = (request: Request): string => {
   return request.auth.tenantId;
 };
 
+const getAdminId = (request: Request): string => {
+  if (!request.auth) {
+    throw new AppError(ErrorCode.MissingAuthContext);
+  }
+
+  return request.auth.userId;
+};
+
 export const listOrdersController = async (request: Request, response: Response) => {
   const query = parseQuery(request, listOrdersQuerySchema);
   const result = await listTenantOrders(getTenantId(request), query);
@@ -54,7 +62,7 @@ export const getOrderController = async (request: Request, response: Response) =
 export const updateOrderStatusController = async (request: Request, response: Response) => {
   const params = parseParams(request, orderParamsSchema);
   const input = parseBody(request, updateOrderStatusSchema);
-  const order = await updateTenantOrderStatus(getTenantId(request), params.orderId, input);
+  const order = await updateTenantOrderStatus(getTenantId(request), params.orderId, input, getAdminId(request));
 
   ok(response, {
     order
@@ -75,7 +83,13 @@ export const confirmPaymentController = async (request: Request, response: Respo
   const params = parseParams(request, orderParamsSchema);
   const input = parseBody(request, confirmPaymentSchema);
   const idempotencyKey = parseIdempotencyKey(request);
-  const paymentResult = await confirmTenantOrderPayment(getTenantId(request), params.orderId, input, idempotencyKey);
+  const paymentResult = await confirmTenantOrderPayment(
+    getTenantId(request),
+    params.orderId,
+    input,
+    idempotencyKey,
+    getAdminId(request)
+  );
 
   ok(response, paymentResult);
 };

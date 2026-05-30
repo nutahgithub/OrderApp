@@ -7,6 +7,7 @@ import { prisma } from "../shared/prisma/client.js";
 import { createAdminToken } from "../shared/security/jwt.js";
 import { verifyPassword } from "../shared/security/password.js";
 import type { AdminProfile, LoginInput, LoginResult } from "../types/auth.types.js";
+import { recordAuditLog } from "./audit-log.service.js";
 
 const toAdminProfile = (admin: {
   id: string;
@@ -52,6 +53,16 @@ export const loginAdmin = async (input: LoginInput): Promise<LoginResult> => {
     adminId: admin.id,
     tenantId: admin.tenantId,
     role: admin.role
+  });
+  await recordAuditLog({
+    tenantId: admin.tenantId,
+    actorAdminId: admin.id,
+    action: "ADMIN_LOGIN",
+    resourceType: "ADMIN_USER",
+    resourceId: admin.id,
+    metadata: {
+      role: admin.role
+    }
   });
 
   return {

@@ -14,9 +14,17 @@ const getTenantId = (request: Request): string => {
   return request.auth.tenantId;
 };
 
+const getAdminId = (request: Request): string => {
+  if (!request.auth) {
+    throw new AppError(ErrorCode.MissingAuthContext);
+  }
+
+  return request.auth.userId;
+};
+
 export const uploadMenuImageController = async (request: Request, response: Response) => {
   const input = parseBody(request, uploadImageSchema);
-  const upload = await uploadMenuImage(getTenantId(request), input);
+  const upload = await uploadMenuImage(getTenantId(request), input, getAdminId(request));
 
   created(response, {
     upload

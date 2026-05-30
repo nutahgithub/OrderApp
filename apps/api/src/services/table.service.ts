@@ -12,6 +12,7 @@ import { ErrorCode } from "../shared/errors/error-catalog.js";
 import { logger } from "../shared/logger/logger.js";
 import { prisma } from "../shared/prisma/client.js";
 import type { CreateTableInput, QrEntryDto, TableDto, UpdateTableInput } from "../types/table.types.js";
+import { recordAuditLog } from "./audit-log.service.js";
 
 const buildQrUrl = (table: Pick<RestaurantTable, "tenantId" | "branchId" | "id">): string => {
   return `${env.WEB_APP_URL}/qr/${table.tenantId}/${table.branchId}/${table.id}`;
@@ -52,7 +53,11 @@ export const listTables = async (tenantId: string, branchId: string): Promise<Ta
   return tables.map(toTableDto);
 };
 
-export const createTenantTable = async (tenantId: string, input: CreateTableInput): Promise<TableDto> => {
+export const createTenantTable = async (
+  tenantId: string,
+  input: CreateTableInput,
+  actorAdminId?: string
+): Promise<TableDto> => {
   await ensureBranchBelongsToTenant(tenantId, input.branchId);
 
   const table = await createTable(prisma, {
@@ -68,6 +73,17 @@ export const createTenantTable = async (tenantId: string, input: CreateTableInpu
     tableId: table.id,
     status: table.status
   });
+  await recordAuditLog({
+    tenantId,
+    actorAdminId,
+    action: "TABLE_CREATED",
+    resourceType: "TABLE",
+    resourceId: table.id,
+    metadata: {
+      branchId: table.branchId,
+      status: table.status
+    }
+  });
 
   return toTableDto(table);
 };
@@ -75,7 +91,8 @@ export const createTenantTable = async (tenantId: string, input: CreateTableInpu
 export const updateTenantTable = async (
   tenantId: string,
   tableId: string,
-  input: UpdateTableInput
+  input: UpdateTableInput,
+  actorAdminId?: string
 ): Promise<TableDto> => {
   const table = await updateTableByTenant(prisma, {
     tenantId,
@@ -93,6 +110,17 @@ export const updateTenantTable = async (
     branchId: table.branchId,
     tableId: table.id,
     status: table.status
+  });
+  await recordAuditLog({
+    tenantId,
+    actorAdminId,
+    action: "TABLE_UPDATED",
+    resourceType: "TABLE",
+    resourceId: table.id,
+    metadata: {
+      branchId: table.branchId,
+      status: table.status
+    }
   });
 
   return toTableDto(table);

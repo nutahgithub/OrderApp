@@ -35,6 +35,10 @@ vi.mock("../../repositories/table.repository.js", () => ({
   updateTableByTenant: vi.fn()
 }));
 
+vi.mock("../audit-log.service.js", () => ({
+  recordAuditLog: vi.fn()
+}));
+
 const branchFixture = (overrides: Partial<Branch> = {}): Branch => ({
   id: "branch-1",
   tenantId: "tenant-1",

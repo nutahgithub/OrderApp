@@ -19,6 +19,14 @@ const getTenantId = (request: Request): string => {
   return request.auth.tenantId;
 };
 
+const getAdminId = (request: Request): string => {
+  if (!request.auth) {
+    throw new AppError(ErrorCode.MissingAuthContext);
+  }
+
+  return request.auth.userId;
+};
+
 export const listMenusController = async (request: Request, response: Response) => {
   const menus = await listTenantMenus(getTenantId(request));
 
@@ -29,7 +37,7 @@ export const listMenusController = async (request: Request, response: Response) 
 
 export const createMenuController = async (request: Request, response: Response) => {
   const input = parseBody(request, createMenuSchema);
-  const menu = await createTenantMenu(getTenantId(request), input);
+  const menu = await createTenantMenu(getTenantId(request), input, getAdminId(request));
 
   created(response, {
     menu
@@ -39,7 +47,7 @@ export const createMenuController = async (request: Request, response: Response)
 export const updateMenuController = async (request: Request, response: Response) => {
   const params = parseParams(request, menuParamsSchema);
   const input = parseBody(request, updateMenuSchema);
-  const menu = await updateTenantMenu(getTenantId(request), params.menuId, input);
+  const menu = await updateTenantMenu(getTenantId(request), params.menuId, input, getAdminId(request));
 
   ok(response, {
     menu
@@ -48,7 +56,7 @@ export const updateMenuController = async (request: Request, response: Response)
 
 export const deleteMenuController = async (request: Request, response: Response) => {
   const params = parseParams(request, menuParamsSchema);
-  await deleteTenantMenu(getTenantId(request), params.menuId);
+  await deleteTenantMenu(getTenantId(request), params.menuId, getAdminId(request));
 
   ok(response, {
     deleted: true

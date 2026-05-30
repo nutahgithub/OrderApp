@@ -181,6 +181,46 @@ export type PaymentResponse = {
   payment: Payment;
 };
 
+export type AuditAction =
+  | "ADMIN_LOGIN"
+  | "BRANCH_CREATED"
+  | "BRANCH_UPDATED"
+  | "BRANCH_DELETED"
+  | "TABLE_CREATED"
+  | "TABLE_UPDATED"
+  | "MENU_CREATED"
+  | "MENU_UPDATED"
+  | "MENU_DELETED"
+  | "ORDER_STATUS_UPDATED"
+  | "PAYMENT_CONFIRMED"
+  | "MENU_IMAGE_UPLOADED";
+
+export type AuditResourceType = "ADMIN_USER" | "BRANCH" | "TABLE" | "MENU" | "ORDER" | "PAYMENT" | "UPLOAD";
+
+export type AuditLog = {
+  id: string;
+  tenantId: string;
+  actorAdminId: string | null;
+  actorAdminName: string | null;
+  actorAdminEmail: string | null;
+  action: AuditAction;
+  resourceType: AuditResourceType;
+  resourceId: string;
+  metadata: unknown;
+  createdAt: string;
+};
+
+export type ListAuditLogsResponse = {
+  enabled: boolean;
+  auditLogs: AuditLog[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
 export type TopMenuItem = {
   menuId: string;
   menuName: string;

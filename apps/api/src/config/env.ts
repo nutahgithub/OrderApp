@@ -41,6 +41,16 @@ const envSchema = z.object({
   REDIS_URL: z.string().min(1, "REDIS_URL is required"),
   JWT_SECRET: z.string().min(12, "JWT_SECRET must be at least 12 characters"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  AUDIT_LOG_ENABLED: z
+    .preprocess((value) => {
+      if (typeof value !== "string") {
+        return value;
+      }
+
+      return value.trim().toLowerCase();
+    }, z.enum(["true", "false"]))
+    .transform((value) => value === "true")
+    .default("true"),
   WEB_APP_URL: z.string().url().default("http://localhost:5173"),
   API_PUBLIC_URL: z.string().url().default("http://localhost:4000"),
   UPLOAD_STORAGE_PROVIDER: z.enum(["local", "minio"]).default("local"),

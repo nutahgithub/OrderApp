@@ -20,6 +20,14 @@ const getTenantId = (request: Request): string => {
   return request.auth.tenantId;
 };
 
+const getAdminId = (request: Request): string => {
+  if (!request.auth) {
+    throw new AppError(ErrorCode.MissingAuthContext);
+  }
+
+  return request.auth.userId;
+};
+
 export const listTablesController = async (request: Request, response: Response) => {
   const query = parseQuery(request, listTablesQuerySchema);
   const tables = await listTables(getTenantId(request), query.branchId);
@@ -31,7 +39,7 @@ export const listTablesController = async (request: Request, response: Response)
 
 export const createTableController = async (request: Request, response: Response) => {
   const input = parseBody(request, createTableSchema);
-  const table = await createTenantTable(getTenantId(request), input);
+  const table = await createTenantTable(getTenantId(request), input, getAdminId(request));
 
   created(response, {
     table
@@ -41,7 +49,7 @@ export const createTableController = async (request: Request, response: Response
 export const updateTableController = async (request: Request, response: Response) => {
   const params = parseParams(request, tableParamsSchema);
   const input = parseBody(request, updateTableSchema);
-  const table = await updateTenantTable(getTenantId(request), params.tableId, input);
+  const table = await updateTenantTable(getTenantId(request), params.tableId, input, getAdminId(request));
 
   ok(response, {
     table

@@ -34,6 +34,7 @@ import type {
   UpdateOrderItemsInput,
   UpdateOrderStatusInput
 } from "../types/order.types.js";
+import { recordAuditLog } from "./audit-log.service.js";
 
 const toMoney = (value: Prisma.Decimal): string => {
   return value.toFixed(2);
@@ -431,8 +432,10 @@ export const getQrOrderDetail = async (
 export const updateTenantOrderStatus = async (
   tenantId: string,
   orderId: string,
-  input: UpdateOrderStatusInput
+  input: UpdateOrderStatusInput,
+  actorAdminId?: string
 ): Promise<OrderDetailDto> => {
+  let previousStatus: OrderStatus | null = null;
   const order = await prisma.$transaction(async (tx) => {
     const currentOrder = await findOrderByTenant(tx, {
       tenantId,
@@ -444,6 +447,7 @@ export const updateTenantOrderStatus = async (
     }
 
     assertOrderStatusTransitionAllowed(currentOrder.status, input.status);
+    previousStatus = currentOrder.status;
 
     const updatedOrder = await updateOrderStatusByTenant(tx, {
       tenantId,
@@ -463,6 +467,18 @@ export const updateTenantOrderStatus = async (
     branchId: order.branchId,
     orderId: order.id,
     status: order.status
+  });
+  await recordAuditLog({
+    tenantId,
+    actorAdminId,
+    action: "ORDER_STATUS_UPDATED",
+    resourceType: "ORDER",
+    resourceId: order.id,
+    metadata: {
+      branchId: order.branchId,
+      previousStatus,
+      status: order.status
+    }
   });
 
   const dto = toOrderDetailDto(order);

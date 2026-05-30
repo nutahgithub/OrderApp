@@ -14,6 +14,14 @@ const getTenantId = (request: Request): string => {
   return request.auth.tenantId;
 };
 
+const getAdminId = (request: Request): string => {
+  if (!request.auth) {
+    throw new AppError(ErrorCode.MissingAuthContext);
+  }
+
+  return request.auth.userId;
+};
+
 export const listBranchesController = async (request: Request, response: Response) => {
   const branches = await listBranches(getTenantId(request));
 
@@ -24,7 +32,7 @@ export const listBranchesController = async (request: Request, response: Respons
 
 export const createBranchController = async (request: Request, response: Response) => {
   const input = parseBody(request, createBranchSchema);
-  const branch = await createTenantBranch(getTenantId(request), input);
+  const branch = await createTenantBranch(getTenantId(request), input, getAdminId(request));
 
   created(response, {
     branch
@@ -34,7 +42,7 @@ export const createBranchController = async (request: Request, response: Respons
 export const updateBranchController = async (request: Request, response: Response) => {
   const params = parseParams(request, branchParamsSchema);
   const input = parseBody(request, updateBranchSchema);
-  const branch = await updateTenantBranch(getTenantId(request), params.branchId, input);
+  const branch = await updateTenantBranch(getTenantId(request), params.branchId, input, getAdminId(request));
 
   ok(response, {
     branch
@@ -44,7 +52,7 @@ export const updateBranchController = async (request: Request, response: Respons
 export const deleteBranchController = async (request: Request, response: Response) => {
   const params = parseParams(request, branchParamsSchema);
 
-  await deleteTenantBranch(getTenantId(request), params.branchId);
+  await deleteTenantBranch(getTenantId(request), params.branchId, getAdminId(request));
 
   ok(response, {
     branchId: params.branchId

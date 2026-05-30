@@ -3,6 +3,7 @@ import { AdminLayout } from "../components/layout/AdminLayout";
 import { CustomerLayout } from "../components/layout/CustomerLayout";
 import { ProtectedRoute } from "../features/auth/ProtectedRoute";
 import { managerRoles, staffOperationRoles } from "../features/auth/rbac";
+import { AdminAuditLogsPage } from "../pages/admin/AdminAuditLogsPage";
 import { AdminBranchesPage } from "../pages/admin/AdminBranchesPage";
 import { AdminDashboardPage } from "../pages/admin/AdminDashboardPage";
 import { AdminLoginPage } from "../pages/admin/AdminLoginPage";
@@ -28,6 +29,7 @@ export const App = () => {
                 <Route path="/admin/branches" element={<AdminBranchesPage />} />
                 <Route path="/admin/tables" element={<AdminTablesPage />} />
                 <Route path="/admin/menus" element={<AdminMenusPage />} />
+                <Route path="/admin/audit-logs" element={<AdminAuditLogsPage />} />
               </Route>
               <Route element={<ProtectedRoute allowedRoles={staffOperationRoles} />}>
                 <Route path="/admin/table-sales" element={<AdminTableSalesPage />} />

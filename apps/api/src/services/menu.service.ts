@@ -15,6 +15,7 @@ import { ErrorCode } from "../shared/errors/error-catalog.js";
 import { logger } from "../shared/logger/logger.js";
 import { prisma } from "../shared/prisma/client.js";
 import type { CreateMenuInput, MenuDto, UpdateMenuInput } from "../types/menu.types.js";
+import { recordAuditLog } from "./audit-log.service.js";
 
 const normalizePrice = (price: string): string => {
   return new Prisma.Decimal(price).toFixed(2);
@@ -40,7 +41,11 @@ export const listTenantMenus = async (tenantId: string): Promise<MenuDto[]> => {
   return menus.map(toMenuDto);
 };
 
-export const createTenantMenu = async (tenantId: string, input: CreateMenuInput): Promise<MenuDto> => {
+export const createTenantMenu = async (
+  tenantId: string,
+  input: CreateMenuInput,
+  actorAdminId?: string
+): Promise<MenuDto> => {
   const menu = await createMenu(prisma, {
     tenantId,
     name: input.name.trim(),
@@ -54,6 +59,16 @@ export const createTenantMenu = async (tenantId: string, input: CreateMenuInput)
     menuId: menu.id,
     isActive: menu.isActive
   });
+  await recordAuditLog({
+    tenantId,
+    actorAdminId,
+    action: "MENU_CREATED",
+    resourceType: "MENU",
+    resourceId: menu.id,
+    metadata: {
+      isActive: menu.isActive
+    }
+  });
 
   return toMenuDto(menu);
 };
@@ -61,7 +76,8 @@ export const createTenantMenu = async (tenantId: string, input: CreateMenuInput)
 export const updateTenantMenu = async (
   tenantId: string,
   menuId: string,
-  input: UpdateMenuInput
+  input: UpdateMenuInput,
+  actorAdminId?: string
 ): Promise<MenuDto> => {
   const menu = await updateMenuByTenant(prisma, {
     tenantId,
@@ -81,11 +97,21 @@ export const updateTenantMenu = async (
     menuId: menu.id,
     isActive: menu.isActive
   });
+  await recordAuditLog({
+    tenantId,
+    actorAdminId,
+    action: "MENU_UPDATED",
+    resourceType: "MENU",
+    resourceId: menu.id,
+    metadata: {
+      isActive: menu.isActive
+    }
+  });
 
   return toMenuDto(menu);
 };
 
-export const deleteTenantMenu = async (tenantId: string, menuId: string): Promise<void> => {
+export const deleteTenantMenu = async (tenantId: string, menuId: string, actorAdminId?: string): Promise<void> => {
   const orderItemCount = await countMenuOrderItemsByTenant(prisma, {
     tenantId,
     menuId
@@ -111,6 +137,13 @@ export const deleteTenantMenu = async (tenantId: string, menuId: string): Promis
   logger.info("menu_deleted", {
     tenantId,
     menuId
+  });
+  await recordAuditLog({
+    tenantId,
+    actorAdminId,
+    action: "MENU_DELETED",
+    resourceType: "MENU",
+    resourceId: menuId
   });
 };
 

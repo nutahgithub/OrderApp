@@ -16,6 +16,7 @@ import { logger } from "../shared/logger/logger.js";
 import { prisma } from "../shared/prisma/client.js";
 import { emitPaymentCompleted } from "../shared/realtime/socket.js";
 import type { ConfirmPaymentInput, ConfirmPaymentResultDto, PaymentDto } from "../types/payment.types.js";
+import { recordAuditLog } from "./audit-log.service.js";
 import { toOrderDetailDto } from "./order.service.js";
 
 const toMoney = (value: Prisma.Decimal): string => {
@@ -97,7 +98,8 @@ export const confirmTenantOrderPayment = async (
   tenantId: string,
   orderId: string,
   input: ConfirmPaymentInput,
-  idempotencyKey: string
+  idempotencyKey: string,
+  actorAdminId?: string
 ): Promise<ConfirmPaymentResultDto> => {
   const amount = new Prisma.Decimal(input.amount);
   const requestHash = buildConfirmPaymentIdempotencyHash(orderId, input);
@@ -227,6 +229,19 @@ export const confirmTenantOrderPayment = async (
     branchId: dto.order.branchId,
     orderId: dto.order.id,
     paymentId: dto.payment.id
+  });
+  await recordAuditLog({
+    tenantId,
+    actorAdminId,
+    action: "PAYMENT_CONFIRMED",
+    resourceType: "PAYMENT",
+    resourceId: dto.payment.id,
+    metadata: {
+      branchId: dto.order.branchId,
+      orderId: dto.order.id,
+      method: dto.payment.method,
+      amount: dto.payment.amount
+    }
   });
 
   emitPaymentCompleted(dto);

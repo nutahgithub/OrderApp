@@ -45,6 +45,10 @@ vi.mock("../../shared/realtime/socket.js", () => ({
   emitPaymentCompleted: vi.fn()
 }));
 
+vi.mock("../audit-log.service.js", () => ({
+  recordAuditLog: vi.fn()
+}));
+
 const tableFixture = (overrides: Partial<RestaurantTable> = {}): RestaurantTable => ({
   id: "table-1",
   tenantId: "tenant-1",

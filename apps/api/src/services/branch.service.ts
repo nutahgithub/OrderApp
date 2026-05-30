@@ -12,6 +12,7 @@ import { ErrorCode } from "../shared/errors/error-catalog.js";
 import { logger } from "../shared/logger/logger.js";
 import { prisma } from "../shared/prisma/client.js";
 import type { BranchDto, CreateBranchInput, UpdateBranchInput } from "../types/branch.types.js";
+import { recordAuditLog } from "./audit-log.service.js";
 
 const toBranchDto = (branch: Branch): BranchDto => {
   return {
@@ -31,7 +32,8 @@ export const listBranches = async (tenantId: string): Promise<BranchDto[]> => {
 
 export const createTenantBranch = async (
   tenantId: string,
-  input: CreateBranchInput
+  input: CreateBranchInput,
+  actorAdminId?: string
 ): Promise<BranchDto> => {
   const branch = await createBranch(prisma, {
     tenantId,
@@ -42,6 +44,13 @@ export const createTenantBranch = async (
     tenantId,
     branchId: branch.id
   });
+  await recordAuditLog({
+    tenantId,
+    actorAdminId,
+    action: "BRANCH_CREATED",
+    resourceType: "BRANCH",
+    resourceId: branch.id
+  });
 
   return toBranchDto(branch);
 };
@@ -49,7 +58,8 @@ export const createTenantBranch = async (
 export const updateTenantBranch = async (
   tenantId: string,
   branchId: string,
-  input: UpdateBranchInput
+  input: UpdateBranchInput,
+  actorAdminId?: string
 ): Promise<BranchDto> => {
   const branch = await updateBranchByTenant(prisma, {
     branchId,
@@ -65,11 +75,18 @@ export const updateTenantBranch = async (
     tenantId,
     branchId: branch.id
   });
+  await recordAuditLog({
+    tenantId,
+    actorAdminId,
+    action: "BRANCH_UPDATED",
+    resourceType: "BRANCH",
+    resourceId: branch.id
+  });
 
   return toBranchDto(branch);
 };
 
-export const deleteTenantBranch = async (tenantId: string, branchId: string): Promise<void> => {
+export const deleteTenantBranch = async (tenantId: string, branchId: string, actorAdminId?: string): Promise<void> => {
   const branch = await findBranchByTenant(prisma, {
     branchId,
     tenantId
@@ -102,5 +119,12 @@ export const deleteTenantBranch = async (tenantId: string, branchId: string): Pr
   logger.info("branch_deleted", {
     tenantId,
     branchId
+  });
+  await recordAuditLog({
+    tenantId,
+    actorAdminId,
+    action: "BRANCH_DELETED",
+    resourceType: "BRANCH",
+    resourceId: branchId
   });
 };
