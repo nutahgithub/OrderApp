@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { auditLogRouter } from "./audit-log.routes.js";
+import { adminUserRouter } from "./admin-user.routes.js";
 import { authRouter } from "./auth.routes.js";
 import { branchRouter } from "./branch.routes.js";
 import { healthRouter } from "./health.routes.js";
@@ -12,6 +13,7 @@ import { uploadRouter } from "./upload.routes.js";
 export const registerRoutes = (app: Express): void => {
   app.use("/health", healthRouter);
   app.use("/admin/auth", authRouter);
+  app.use("/admin/users", adminUserRouter);
   app.use("/admin/audit-logs", auditLogRouter);
   app.use("/admin/branches", branchRouter);
   app.use("/admin/tables", tableRouter);

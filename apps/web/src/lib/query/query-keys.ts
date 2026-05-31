@@ -1,6 +1,7 @@
 import type { AuditAction, AuditResourceType, OrderStatus } from "../api/types";
 
 export const queryKeys = {
+  adminUsers: () => ["admin-users"] as const,
   branches: () => ["branches"] as const,
   tables: (branchId: string) => ["tables", branchId] as const,
   menus: () => ["menus"] as const,

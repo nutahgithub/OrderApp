@@ -14,6 +14,10 @@ import { MessageKey } from "../../lib/i18n/messages";
 
 const auditActions: AuditAction[] = [
   "ADMIN_LOGIN",
+  "ADMIN_USER_CREATED",
+  "ADMIN_USER_UPDATED",
+  "ADMIN_USER_DISABLED",
+  "ADMIN_USER_PASSWORD_RESET",
   "BRANCH_CREATED",
   "BRANCH_UPDATED",
   "BRANCH_DELETED",

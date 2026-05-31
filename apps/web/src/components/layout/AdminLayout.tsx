@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BellRing, Building2, ClipboardList, Gauge, LogOut, MenuSquare, ShoppingBag, Store, Table2, Volume2 } from "lucide-react";
+import { BellRing, Building2, ClipboardList, Gauge, LogOut, MenuSquare, ShoppingBag, Store, Table2, UsersRound, Volume2 } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthContext";
 import { isRoleAllowed, managerRoles, staffOperationRoles } from "../../features/auth/rbac";
@@ -31,6 +31,7 @@ const navItems = [
   { icon: Table2, labelKey: MessageKey.NavTables, to: "/admin/tables", allowedRoles: managerRoles },
   { icon: MenuSquare, labelKey: MessageKey.NavMenus, to: "/admin/menus", allowedRoles: managerRoles },
   { icon: ClipboardList, labelKey: MessageKey.NavAuditLogs, to: "/admin/audit-logs", allowedRoles: managerRoles },
+  { icon: UsersRound, labelKey: MessageKey.NavAdminUsers, to: "/admin/users", allowedRoles: managerRoles },
   { icon: Table2, labelKey: MessageKey.NavTableSales, to: "/admin/table-sales", allowedRoles: staffOperationRoles },
   { icon: ShoppingBag, labelKey: MessageKey.NavOrders, to: "/admin/orders", allowedRoles: staffOperationRoles }
 ] satisfies Array<{

@@ -1,5 +1,8 @@
 export const ErrorCode = {
   AdminNotFound: "ADMIN_NOT_FOUND",
+  AdminEmailAlreadyExists: "ADMIN_EMAIL_ALREADY_EXISTS",
+  AdminSelfAccessChangeForbidden: "ADMIN_SELF_ACCESS_CHANGE_FORBIDDEN",
+  AdminRoleAssignmentForbidden: "ADMIN_ROLE_ASSIGNMENT_FORBIDDEN",
   BranchNotEmpty: "BRANCH_NOT_EMPTY",
   BranchNotFound: "BRANCH_NOT_FOUND",
   IdempotencyKeyConflict: "IDEMPOTENCY_KEY_CONFLICT",
@@ -39,6 +42,21 @@ export const errorCatalog = {
     code: ErrorCode.AdminNotFound,
     message: "Admin not found",
     statusCode: 404
+  },
+  [ErrorCode.AdminEmailAlreadyExists]: {
+    code: ErrorCode.AdminEmailAlreadyExists,
+    message: "An admin with this email already exists",
+    statusCode: 409
+  },
+  [ErrorCode.AdminSelfAccessChangeForbidden]: {
+    code: ErrorCode.AdminSelfAccessChangeForbidden,
+    message: "You cannot remove your own admin access",
+    statusCode: 403
+  },
+  [ErrorCode.AdminRoleAssignmentForbidden]: {
+    code: ErrorCode.AdminRoleAssignmentForbidden,
+    message: "You cannot assign or manage that admin role",
+    statusCode: 403
   },
   [ErrorCode.BranchNotEmpty]: {
     code: ErrorCode.BranchNotEmpty,

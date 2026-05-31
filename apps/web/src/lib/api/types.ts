@@ -44,6 +44,43 @@ export type CurrentAdminResponse = {
   admin: AdminProfile;
 };
 
+export type AdminUser = {
+  id: string;
+  tenantId: string;
+  email: string;
+  name: string;
+  role: AdminRole;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateAdminUserRequest = {
+  email: string;
+  name: string;
+  password: string;
+  role: AdminRole;
+};
+
+export type UpdateAdminUserRequest = {
+  email?: string;
+  name?: string;
+  role?: AdminRole;
+  isActive?: boolean;
+};
+
+export type ResetAdminPasswordRequest = {
+  password: string;
+};
+
+export type ListAdminUsersResponse = {
+  adminUsers: AdminUser[];
+};
+
+export type AdminUserResponse = {
+  adminUser: AdminUser;
+};
+
 export type Branch = {
   id: string;
   tenantId: string;
@@ -183,6 +220,10 @@ export type PaymentResponse = {
 
 export type AuditAction =
   | "ADMIN_LOGIN"
+  | "ADMIN_USER_CREATED"
+  | "ADMIN_USER_UPDATED"
+  | "ADMIN_USER_DISABLED"
+  | "ADMIN_USER_PASSWORD_RESET"
   | "BRANCH_CREATED"
   | "BRANCH_UPDATED"
   | "BRANCH_DELETED"

@@ -8,6 +8,7 @@ export type AdminWithTenant = {
   name: string;
   passwordHash: string;
   role: AdminRole;
+  isActive: boolean;
   tenant: {
     id: string;
     name: string;
@@ -26,7 +27,8 @@ const adminWithTenantInclude = {
 export const findAdminByEmail = async (db: DbClient, email: string): Promise<AdminWithTenant | null> => {
   return db.adminUser.findFirst({
     where: {
-      email
+      email,
+      isActive: true
     },
     include: adminWithTenantInclude
   });
@@ -40,7 +42,8 @@ export const findAdminByIdAndTenant = async (
   return db.adminUser.findFirst({
     where: {
       id: userId,
-      tenantId
+      tenantId,
+      isActive: true
     },
     include: adminWithTenantInclude
   });

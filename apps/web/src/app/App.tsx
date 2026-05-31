@@ -11,6 +11,7 @@ import { AdminMenusPage } from "../pages/admin/AdminMenusPage";
 import { AdminOrdersPage } from "../pages/admin/AdminOrdersPage";
 import { AdminTableSalesPage } from "../pages/admin/AdminTableSalesPage";
 import { AdminTablesPage } from "../pages/admin/AdminTablesPage";
+import { AdminUsersPage } from "../pages/admin/AdminUsersPage";
 import { CustomerQrEntryPage } from "../pages/customer/CustomerQrEntryPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { AppProviders } from "./providers";
@@ -30,6 +31,7 @@ export const App = () => {
                 <Route path="/admin/tables" element={<AdminTablesPage />} />
                 <Route path="/admin/menus" element={<AdminMenusPage />} />
                 <Route path="/admin/audit-logs" element={<AdminAuditLogsPage />} />
+                <Route path="/admin/users" element={<AdminUsersPage />} />
               </Route>
               <Route element={<ProtectedRoute allowedRoles={staffOperationRoles} />}>
                 <Route path="/admin/table-sales" element={<AdminTableSalesPage />} />
