@@ -10,6 +10,12 @@ import {
 } from "../order.repository.js";
 import { createCompletedPayment, findPaymentByTenantOrder } from "../payment.repository.js";
 import {
+  findMenuCategoryByTenant,
+  listActiveMenusByTenantAndIds,
+  listMenuCategoriesByTenant,
+  updateMenuByTenant
+} from "../menu.repository.js";
+import {
   countOrders,
   countProcessingOrders,
   groupOrdersByStatus,
@@ -49,7 +55,13 @@ const createDb = () => {
       updateMany: vi.fn().mockResolvedValue({ count: 0 })
     },
     menu: {
-      findMany: vi.fn().mockResolvedValue([])
+      findMany: vi.fn().mockResolvedValue([]),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      findFirst: vi.fn().mockResolvedValue(null)
+    },
+    menuCategory: {
+      findMany: vi.fn().mockResolvedValue([]),
+      findFirst: vi.fn().mockResolvedValue(null)
     }
   };
 
@@ -305,5 +317,73 @@ describe("tenant isolation repository queries", () => {
     });
     expect(db.orderItem.deleteMany).not.toHaveBeenCalled();
     expect(db.orderItem.createMany).not.toHaveBeenCalled();
+  });
+
+  it("scopes menu category and availability queries by tenant", async () => {
+    const db = createDb();
+
+    await listMenuCategoriesByTenant(db, "tenant-a");
+    await findMenuCategoryByTenant(db, {
+      tenantId: "tenant-a",
+      categoryId: "category-a"
+    });
+    await listActiveMenusByTenantAndIds(db, {
+      tenantId: "tenant-a",
+      menuIds: ["menu-a"]
+    });
+    await updateMenuByTenant(db, {
+      tenantId: "tenant-a",
+      menuId: "menu-a",
+      name: "Pho",
+      price: "45000.00",
+      imageUrl: null,
+      categoryId: "category-a",
+      isActive: true,
+      isOutOfStock: true,
+      isFeatured: false,
+      isNew: false,
+      sortOrder: 2
+    });
+
+    expect(db.menuCategory.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tenantId: "tenant-a"
+        }
+      })
+    );
+    expect(db.menuCategory.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "category-a",
+        tenantId: "tenant-a"
+      }
+    });
+    expect(db.menu.findMany).toHaveBeenCalledWith({
+      where: {
+        tenantId: "tenant-a",
+        id: {
+          in: ["menu-a"]
+        },
+        isActive: true,
+        isOutOfStock: false
+      }
+    });
+    expect(db.menu.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "menu-a",
+        tenantId: "tenant-a"
+      },
+      data: {
+        name: "Pho",
+        price: "45000.00",
+        imageUrl: null,
+        categoryId: "category-a",
+        isActive: true,
+        isOutOfStock: true,
+        isFeatured: false,
+        isNew: false,
+        sortOrder: 2
+      }
+    });
   });
 });

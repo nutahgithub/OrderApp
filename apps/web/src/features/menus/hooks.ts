@@ -10,6 +10,48 @@ export const useMenusQuery = (token: string | null) => {
   });
 };
 
+export const useMenuCategoriesQuery = (token: string | null) => {
+  return useQuery({
+    queryKey: [...queryKeys.menus(), "categories"],
+    queryFn: () => menusApi.listCategories(token ?? ""),
+    enabled: Boolean(token)
+  });
+};
+
+export const useCreateMenuCategoryMutation = (token: string | null) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: menusApi.createCategory.bind(null, token ?? ""),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.menus() });
+    }
+  });
+};
+
+export const useUpdateMenuCategoryMutation = (token: string | null) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { categoryId: string; body: Parameters<typeof menusApi.updateCategory>[2] }) =>
+      menusApi.updateCategory(token ?? "", input.categoryId, input.body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.menus() });
+    }
+  });
+};
+
+export const useDeleteMenuCategoryMutation = (token: string | null) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: menusApi.deleteCategory.bind(null, token ?? ""),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.menus() });
+    }
+  });
+};
+
 export const useCreateMenuMutation = (token: string | null) => {
   const queryClient = useQueryClient();
 

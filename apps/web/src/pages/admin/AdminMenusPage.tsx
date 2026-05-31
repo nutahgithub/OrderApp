@@ -1,22 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Search } from "lucide-react";
+import { EyeOff, PackageCheck, PackageX, Pencil, Plus, Search, Tags, Trash2, X } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Panel } from "../../components/ui/Panel";
+import { SelectField } from "../../components/ui/SelectField";
 import { StateMessage } from "../../components/ui/StateMessage";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useAuth } from "../../features/auth/AuthContext";
 import {
+  useCreateMenuCategoryMutation,
   useCreateMenuMutation,
+  useDeleteMenuCategoryMutation,
+  useMenuCategoriesQuery,
   useDeleteMenuMutation,
+  useUpdateMenuCategoryMutation,
   useMenusQuery,
   useUpdateMenuMutation,
   useUploadMenuImageMutation
 } from "../../features/menus/hooks";
-import { menuSchema } from "../../features/menus/schemas";
-import type { Menu } from "../../lib/api/types";
+import { menuCategorySchema, menuSchema } from "../../features/menus/schemas";
+import type { Menu, MenuCategory } from "../../lib/api/types";
 import { getUserErrorMessage } from "../../lib/i18n/error-messages";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import { MessageKey } from "../../lib/i18n/messages";
@@ -27,8 +32,15 @@ type EditingMenu = {
   price: string;
   imageUrl: string;
   imageFile: File | null;
+  categoryId: string | null;
   isActive: boolean;
+  isOutOfStock: boolean;
+  isFeatured: boolean;
+  isNew: boolean;
+  sortOrder: number;
 };
+
+type EditingCategory = Pick<MenuCategory, "id" | "name" | "sortOrder">;
 
 const maxCompressedImageBytes = 1_000_000;
 const acceptedImageTypes = ["image/jpeg", "image/png", "image/webp"] as const;
@@ -180,6 +192,10 @@ export const AdminMenusPage = () => {
   const { token, logout } = useAuth();
   const { locale, t } = useI18n();
   const menusQuery = useMenusQuery(token);
+  const categoriesQuery = useMenuCategoriesQuery(token);
+  const createCategoryMutation = useCreateMenuCategoryMutation(token);
+  const updateCategoryMutation = useUpdateMenuCategoryMutation(token);
+  const deleteCategoryMutation = useDeleteMenuCategoryMutation(token);
   const createMenuMutation = useCreateMenuMutation(token);
   const updateMenuMutation = useUpdateMenuMutation(token);
   const deleteMenuMutation = useDeleteMenuMutation(token);
@@ -188,8 +204,16 @@ export const AdminMenusPage = () => {
   const [newMenuName, setNewMenuName] = useState("");
   const [newMenuPrice, setNewMenuPrice] = useState("");
   const [newMenuImageFile, setNewMenuImageFile] = useState<File | null>(null);
+  const [newMenuCategoryId, setNewMenuCategoryId] = useState<string | null>(null);
   const [newMenuIsActive, setNewMenuIsActive] = useState(true);
+  const [newMenuIsOutOfStock, setNewMenuIsOutOfStock] = useState(false);
+  const [newMenuIsFeatured, setNewMenuIsFeatured] = useState(false);
+  const [newMenuIsNew, setNewMenuIsNew] = useState(false);
+  const [newMenuSortOrder, setNewMenuSortOrder] = useState(0);
   const [editingMenu, setEditingMenu] = useState<EditingMenu | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategorySortOrder, setNewCategorySortOrder] = useState(0);
+  const [editingCategory, setEditingCategory] = useState<EditingCategory | null>(null);
   const [menuSearch, setMenuSearch] = useState("");
   const [showHiddenMenus, setShowHiddenMenus] = useState(true);
   const [menuPage, setMenuPage] = useState(1);
@@ -199,20 +223,54 @@ export const AdminMenusPage = () => {
   const [busyMenuId, setBusyMenuId] = useState<string | null>(null);
 
   const menus = menusQuery.data?.menus ?? [];
+  const categories = categoriesQuery.data?.categories ?? menusQuery.data?.categories ?? [];
   const visibleMenuCount = menus.filter((menu) => menu.isActive).length;
   const hiddenMenuCount = menus.length - visibleMenuCount;
   const isSubmitting = createMenuMutation.isPending || updateMenuMutation.isPending || uploadMenuImageMutation.isPending;
+  const isCategorySubmitting = createCategoryMutation.isPending || updateCategoryMutation.isPending || deleteCategoryMutation.isPending;
   const normalizedMenuSearch = normalizeMenuSearchText(menuSearch.trim());
   const filteredMenus = useMemo(() => {
-    return menus.filter((menu) => {
-      const matchesStatus = showHiddenMenus || menu.isActive;
-      const matchesSearch = normalizedMenuSearch === "" || normalizeMenuSearchText(menu.name).includes(normalizedMenuSearch);
+    return menus
+      .filter((menu) => {
+        const matchesStatus = showHiddenMenus || menu.isActive;
+        const matchesSearch =
+          normalizedMenuSearch === "" ||
+          normalizeMenuSearchText(menu.name).includes(normalizedMenuSearch) ||
+          normalizeMenuSearchText(menu.categoryName ?? "").includes(normalizedMenuSearch);
 
-      return matchesStatus && matchesSearch;
-    });
-  }, [menus, normalizedMenuSearch, showHiddenMenus]);
+        return matchesStatus && matchesSearch;
+      })
+      .sort((left, right) => {
+        return (
+          (left.categorySortOrder ?? 9999) - (right.categorySortOrder ?? 9999) ||
+          (left.categoryName ?? t(MessageKey.MenusUncategorized)).localeCompare(
+            right.categoryName ?? t(MessageKey.MenusUncategorized)
+          ) ||
+          left.sortOrder - right.sortOrder ||
+          left.name.localeCompare(right.name)
+        );
+      });
+  }, [menus, normalizedMenuSearch, showHiddenMenus, t]);
   const totalMenuPages = Math.max(1, Math.ceil(filteredMenus.length / menusPerPage));
   const paginatedMenus = filteredMenus.slice((menuPage - 1) * menusPerPage, menuPage * menusPerPage);
+  const groupedPaginatedMenus = useMemo(() => {
+    const groups = new Map<string, { id: string; name: string; sortOrder: number; menus: Menu[] }>();
+
+    paginatedMenus.forEach((menu) => {
+      const groupId = menu.categoryId ?? "uncategorized";
+      const group = groups.get(groupId) ?? {
+        id: groupId,
+        name: menu.categoryName ?? t(MessageKey.MenusUncategorized),
+        sortOrder: menu.categorySortOrder ?? 9999,
+        menus: []
+      };
+
+      group.menus.push(menu);
+      groups.set(groupId, group);
+    });
+
+    return [...groups.values()];
+  }, [paginatedMenus, t]);
 
   useEffect(() => {
     if (!token) {
@@ -233,7 +291,12 @@ export const AdminMenusPage = () => {
     setNewMenuName("");
     setNewMenuPrice("");
     setNewMenuImageFile(null);
+    setNewMenuCategoryId(null);
     setNewMenuIsActive(true);
+    setNewMenuIsOutOfStock(false);
+    setNewMenuIsFeatured(false);
+    setNewMenuIsNew(false);
+    setNewMenuSortOrder(0);
     setFormError(null);
     setFormErrorTitle(MessageKey.MenusUnableToSave);
     if (menuImageInputRef.current) {
@@ -265,7 +328,12 @@ export const AdminMenusPage = () => {
       price: newMenuPrice,
       imageFile: newMenuImageFile,
       imageUrl: null,
-      isActive: newMenuIsActive
+      categoryId: newMenuCategoryId,
+      isActive: newMenuIsActive,
+      isOutOfStock: newMenuIsOutOfStock,
+      isFeatured: newMenuIsFeatured,
+      isNew: newMenuIsNew,
+      sortOrder: newMenuSortOrder
     });
 
     if (!parsed.success) {
@@ -284,7 +352,12 @@ export const AdminMenusPage = () => {
         name: parsed.data.name,
         price: parsed.data.price,
         imageUrl: uploadedImageUrl,
-        isActive: parsed.data.isActive
+        categoryId: parsed.data.categoryId,
+        isActive: parsed.data.isActive,
+        isOutOfStock: parsed.data.isOutOfStock,
+        isFeatured: parsed.data.isFeatured,
+        isNew: parsed.data.isNew,
+        sortOrder: parsed.data.sortOrder
       });
       resetForm();
       setSuccessMessage(t(MessageKey.MenusCreated));
@@ -322,7 +395,12 @@ export const AdminMenusPage = () => {
         name: parsed.data.name,
         price: parsed.data.price,
         imageUrl: uploadedImageUrl ?? (editingMenu.imageUrl || null),
-        isActive: parsed.data.isActive
+        categoryId: parsed.data.categoryId,
+        isActive: parsed.data.isActive,
+        isOutOfStock: parsed.data.isOutOfStock,
+        isFeatured: parsed.data.isFeatured,
+        isNew: parsed.data.isNew,
+        sortOrder: parsed.data.sortOrder
         }
       });
       resetForm();
@@ -350,7 +428,12 @@ export const AdminMenusPage = () => {
         name: menu.name,
         price: menu.price,
         imageUrl: menu.imageUrl,
-        isActive: !menu.isActive
+        categoryId: menu.categoryId,
+        isActive: !menu.isActive,
+        isOutOfStock: menu.isOutOfStock,
+        isFeatured: menu.isFeatured,
+        isNew: menu.isNew,
+        sortOrder: menu.sortOrder
         }
       });
       setSuccessMessage(menu.isActive ? t(MessageKey.MenusHiddenFromQr) : t(MessageKey.MenusAvailableToQr));
@@ -359,6 +442,105 @@ export const AdminMenusPage = () => {
       setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
     } finally {
       setBusyMenuId(null);
+    }
+  };
+
+  const handleToggleStock = async (menu: Menu) => {
+    if (!token) {
+      logout();
+      return;
+    }
+
+    setFormError(null);
+    setSuccessMessage(null);
+    setBusyMenuId(menu.id);
+
+    try {
+      await updateMenuMutation.mutateAsync({
+        menuId: menu.id,
+        body: {
+          name: menu.name,
+          price: menu.price,
+          imageUrl: menu.imageUrl,
+          categoryId: menu.categoryId,
+          isActive: menu.isActive,
+          isOutOfStock: !menu.isOutOfStock,
+          isFeatured: menu.isFeatured,
+          isNew: menu.isNew,
+          sortOrder: menu.sortOrder
+        }
+      });
+      setSuccessMessage(t(MessageKey.MenusUpdated));
+    } catch (error: unknown) {
+      setFormErrorTitle(MessageKey.MenusUnableToSave);
+      setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
+    } finally {
+      setBusyMenuId(null);
+    }
+  };
+
+  const handleCreateCategory = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const parsed = menuCategorySchema.safeParse({
+      name: newCategoryName,
+      sortOrder: newCategorySortOrder
+    });
+
+    if (!parsed.success) {
+      setFormErrorTitle(MessageKey.MenusUnableToSave);
+      setFormError(t(parsed.error.issues[0]?.message as MessageKey));
+      return;
+    }
+
+    try {
+      await createCategoryMutation.mutateAsync(parsed.data);
+      setNewCategoryName("");
+      setNewCategorySortOrder(0);
+      setSuccessMessage(t(MessageKey.MenusCategorySaved));
+    } catch (error: unknown) {
+      setFormErrorTitle(MessageKey.MenusUnableToSave);
+      setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
+    }
+  };
+
+  const handleUpdateCategory = async () => {
+    if (!editingCategory) {
+      return;
+    }
+
+    const parsed = menuCategorySchema.safeParse(editingCategory);
+
+    if (!parsed.success) {
+      setFormErrorTitle(MessageKey.MenusUnableToSave);
+      setFormError(t(parsed.error.issues[0]?.message as MessageKey));
+      return;
+    }
+
+    try {
+      await updateCategoryMutation.mutateAsync({
+        categoryId: editingCategory.id,
+        body: parsed.data
+      });
+      setEditingCategory(null);
+      setSuccessMessage(t(MessageKey.MenusCategorySaved));
+    } catch (error: unknown) {
+      setFormErrorTitle(MessageKey.MenusUnableToSave);
+      setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
+    }
+  };
+
+  const handleDeleteCategory = async (category: MenuCategory) => {
+    if (!window.confirm(t(MessageKey.MenusCategoryDeleteConfirm, { categoryName: category.name }))) {
+      return;
+    }
+
+    try {
+      await deleteCategoryMutation.mutateAsync(category.id);
+      setSuccessMessage(t(MessageKey.MenusCategoryDeleted));
+    } catch (error: unknown) {
+      setFormErrorTitle(MessageKey.MenusUnableToSave);
+      setFormError(getUserErrorMessage(error, MessageKey.RequestFailed, locale));
     }
   };
 
@@ -395,14 +577,24 @@ export const AdminMenusPage = () => {
   const formName = editingMenu ? editingMenu.name : newMenuName;
   const formPrice = editingMenu ? editingMenu.price : newMenuPrice;
   const formImageFile = editingMenu ? editingMenu.imageFile : newMenuImageFile;
+  const formCategoryId = editingMenu ? editingMenu.categoryId : newMenuCategoryId;
   const formIsActive = editingMenu ? editingMenu.isActive : newMenuIsActive;
+  const formIsOutOfStock = editingMenu ? editingMenu.isOutOfStock : newMenuIsOutOfStock;
+  const formIsFeatured = editingMenu ? editingMenu.isFeatured : newMenuIsFeatured;
+  const formIsNew = editingMenu ? editingMenu.isNew : newMenuIsNew;
+  const formSortOrder = editingMenu ? editingMenu.sortOrder : newMenuSortOrder;
+  const categoryOptions = [
+    { label: t(MessageKey.MenusUncategorized), value: "none" },
+    ...categories.map((category) => ({ label: category.name, value: category.id }))
+  ];
 
   return (
     <section className="grid gap-5">
       <PageHeader eyebrow={t(MessageKey.Setup)} title={t(MessageKey.MenusTitle)} subtitle={t(MessageKey.MenusSubtitle)} />
 
-      <section className="grid grid-cols-[minmax(320px,0.82fr)_minmax(0,1.18fr)] items-start gap-4 max-[1100px]:grid-cols-1">
-      <Panel className="grid gap-3 min-[1101px]:sticky min-[1101px]:top-7">
+      <section className="grid grid-cols-[minmax(340px,420px)_minmax(0,1fr)] items-start gap-4 max-[1100px]:grid-cols-1">
+      <div className="grid min-w-0 gap-4 min-[1101px]:sticky min-[1101px]:top-7">
+      <Panel className="grid gap-3">
         <h2 className="m-0 text-base">{editingMenu ? t(MessageKey.MenusEditTitle) : t(MessageKey.MenusCreateTitle)}</h2>
         <p className="-mt-1 text-[13px] leading-normal text-muted-foreground">{t(MessageKey.MenusHint)}</p>
         <form className="grid gap-3" onSubmit={editingMenu ? handleUpdate : handleCreate}>
@@ -441,7 +633,7 @@ export const AdminMenusPage = () => {
                 }}
                 required
               />
-              <span className="flex-none text-sm font-extrabold text-muted-foreground">đ</span>
+              <span className="flex-none text-sm font-extrabold text-muted-foreground">VND</span>
             </span>
           </label>
           <label className="grid min-w-0 gap-1.5 text-sm font-semibold text-foreground">
@@ -468,7 +660,39 @@ export const AdminMenusPage = () => {
                 : t(MessageKey.MenusImageHint)}
             </span>
           </label>
-          <label className="flex min-h-[42px] items-center gap-2 text-sm font-bold text-foreground max-[1100px]:justify-start">
+          <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-2 max-[520px]:grid-cols-1">
+            <SelectField
+              label={t(MessageKey.MenusCategoryLabel)}
+              options={categoryOptions}
+              value={formCategoryId ?? "none"}
+              onValueChange={(value) => {
+                const nextCategoryId = value === "none" ? null : value;
+
+                if (editingMenu) {
+                  setEditingMenu({ ...editingMenu, categoryId: nextCategoryId });
+                } else {
+                  setNewMenuCategoryId(nextCategoryId);
+                }
+              }}
+            />
+            <Input
+              label={t(MessageKey.MenusSortOrderLabel)}
+              name="menuSortOrder"
+              type="number"
+              min={0}
+              value={String(formSortOrder)}
+              onChange={(event) => {
+                const nextSortOrder = Number(event.target.value || 0);
+
+                if (editingMenu) {
+                  setEditingMenu({ ...editingMenu, sortOrder: nextSortOrder });
+                } else {
+                  setNewMenuSortOrder(nextSortOrder);
+                }
+              }}
+            />
+          </div>
+          <label className="flex min-h-[42px] items-center gap-2 rounded-md border border-border bg-muted/25 px-3 text-sm font-bold text-foreground max-[1100px]:justify-start">
             <input
               className="h-[18px] w-[18px]"
               type="checkbox"
@@ -483,13 +707,62 @@ export const AdminMenusPage = () => {
             />
             {t(MessageKey.MenusAvailableToCustomers)}
           </label>
-          <div className="flex gap-2 max-[1100px]:justify-start">
+          <div className="grid grid-cols-3 gap-2 rounded-md border border-border bg-muted/35 p-2 max-[520px]:grid-cols-1">
+            <label className="flex min-h-[32px] items-center gap-2 text-sm font-bold text-foreground">
+              <input
+                className="h-[18px] w-[18px]"
+                type="checkbox"
+                checked={formIsOutOfStock}
+                onChange={(event) => {
+                  if (editingMenu) {
+                    setEditingMenu({ ...editingMenu, isOutOfStock: event.target.checked });
+                  } else {
+                    setNewMenuIsOutOfStock(event.target.checked);
+                  }
+                }}
+              />
+              {t(MessageKey.MenusOutOfStockLabel)}
+            </label>
+            <label className="flex min-h-[32px] items-center gap-2 text-sm font-bold text-foreground">
+              <input
+                className="h-[18px] w-[18px]"
+                type="checkbox"
+                checked={formIsFeatured}
+                onChange={(event) => {
+                  if (editingMenu) {
+                    setEditingMenu({ ...editingMenu, isFeatured: event.target.checked });
+                  } else {
+                    setNewMenuIsFeatured(event.target.checked);
+                  }
+                }}
+              />
+              {t(MessageKey.MenusFeaturedLabel)}
+            </label>
+            <label className="flex min-h-[32px] items-center gap-2 text-sm font-bold text-foreground">
+              <input
+                className="h-[18px] w-[18px]"
+                type="checkbox"
+                checked={formIsNew}
+                onChange={(event) => {
+                  if (editingMenu) {
+                    setEditingMenu({ ...editingMenu, isNew: event.target.checked });
+                  } else {
+                    setNewMenuIsNew(event.target.checked);
+                  }
+                }}
+              />
+              {t(MessageKey.MenusNewLabel)}
+            </label>
+          </div>
+          <div className="flex flex-wrap gap-2 max-[1100px]:justify-start">
             {editingMenu ? (
               <Button type="button" className="bg-muted text-secondary-foreground" disabled={isSubmitting} onClick={resetForm}>
+                <X className="mr-2 h-4 w-4" aria-hidden="true" />
                 {t(MessageKey.Cancel)}
               </Button>
             ) : null}
             <Button type="submit" disabled={isSubmitting}>
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
               {isSubmitting
                 ? formImageFile
                   ? t(MessageKey.MenusUploadingImage)
@@ -506,7 +779,109 @@ export const AdminMenusPage = () => {
         ) : null}
       </Panel>
 
-      <Panel>
+      <Panel className="grid gap-3">
+        <h2 className="m-0 inline-flex items-center gap-2 text-base">
+          <Tags className="h-4 w-4 text-primary" aria-hidden="true" />
+          {t(MessageKey.MenusCategoriesTitle)}
+        </h2>
+        <form className="grid grid-cols-[minmax(0,1fr)_86px] gap-2" onSubmit={handleCreateCategory}>
+          <Input
+            label={t(MessageKey.MenusCategoryNameLabel)}
+            name="categoryName"
+            value={newCategoryName}
+            onChange={(event) => setNewCategoryName(event.target.value)}
+          />
+          <Input
+            label={t(MessageKey.MenusSortOrderLabel)}
+            name="categorySortOrder"
+            type="number"
+            min={0}
+            value={String(newCategorySortOrder)}
+            onChange={(event) => setNewCategorySortOrder(Number(event.target.value || 0))}
+          />
+          <Button type="submit" className="col-span-2 min-h-9 self-end max-[520px]:col-span-1" disabled={isCategorySubmitting}>
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+            {t(MessageKey.MenusCategoryCreateButton)}
+          </Button>
+        </form>
+        {categories.length === 0 ? <StateMessage title={t(MessageKey.MenusNoCategories)} /> : null}
+        {categories.length > 0 ? (
+          <div className="grid gap-2">
+            {categories.map((category) => {
+              const isEditingCategory = editingCategory?.id === category.id;
+
+              return (
+                <div className="rounded-md border border-border bg-muted/30 p-2" key={category.id}>
+                  {isEditingCategory ? (
+                    <div className="grid grid-cols-[minmax(0,1fr)_78px] gap-2">
+                      <Input
+                        label={t(MessageKey.MenusCategoryNameLabel)}
+                        value={editingCategory.name}
+                        onChange={(event) =>
+                          setEditingCategory({
+                            ...editingCategory,
+                            name: event.target.value
+                          })
+                        }
+                      />
+                      <Input
+                        label={t(MessageKey.MenusSortOrderLabel)}
+                        type="number"
+                        min={0}
+                        value={String(editingCategory.sortOrder)}
+                        onChange={(event) =>
+                          setEditingCategory({
+                            ...editingCategory,
+                            sortOrder: Number(event.target.value || 0)
+                          })
+                        }
+                      />
+                      <div className="col-span-2 flex flex-wrap gap-2">
+                        <Button type="button" className="mt-0 min-h-9" disabled={isCategorySubmitting} onClick={() => void handleUpdateCategory()}>
+                          {t(MessageKey.SaveChanges)}
+                        </Button>
+                        <Button type="button" className="mt-0 min-h-9 bg-muted text-secondary-foreground" disabled={isCategorySubmitting} onClick={() => setEditingCategory(null)}>
+                          {t(MessageKey.Cancel)}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+                      <div className="min-w-0">
+                        <strong className="block truncate text-sm">{category.name}</strong>
+                        <span className="text-xs font-bold text-muted-foreground">#{category.sortOrder}</span>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <Button
+                          type="button"
+                          className="mt-0 min-h-9 w-9 bg-secondary p-0 text-secondary-foreground hover:bg-accent"
+                          disabled={isCategorySubmitting}
+                          aria-label={t(MessageKey.Edit)}
+                          onClick={() => setEditingCategory({ id: category.id, name: category.name, sortOrder: category.sortOrder })}
+                        >
+                          <Pencil className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                        <Button
+                          type="button"
+                          className="mt-0 min-h-9 w-9 bg-red-600 p-0 text-white hover:bg-red-700"
+                          disabled={isCategorySubmitting}
+                          aria-label={t(MessageKey.Delete)}
+                          onClick={() => void handleDeleteCategory(category)}
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+      </Panel>
+      </div>
+
+      <Panel className="min-w-0">
         <div className="mb-4 grid gap-3">
           <div>
             <h2 className="m-0 text-base">{t(MessageKey.MenusListTitle)}</h2>
@@ -556,69 +931,111 @@ export const AdminMenusPage = () => {
         ) : null}
         {menus.length > 0 && filteredMenus.length === 0 ? <StateMessage title={t(MessageKey.MenusNoSearchResults)} /> : null}
         {filteredMenus.length > 0 ? (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-2.5">
-            {paginatedMenus.map((menu) => (
-              <article className="grid gap-3 rounded-md border border-border bg-muted/45 p-3" key={menu.id}>
-                <div className="grid aspect-[4/3] w-full place-items-center overflow-hidden rounded-md border border-border bg-muted font-extrabold text-muted-foreground" aria-label={menu.imageUrl ? menu.name : t(MessageKey.MenusNoImage)}>
-                  {menu.imageUrl ? (
-                    <img className="h-full w-full object-cover" src={menu.imageUrl} alt={menu.name} loading="lazy" />
-                  ) : (
-                    <span>{menu.name[0]}</span>
-                  )}
+          <div className="grid gap-5">
+            {groupedPaginatedMenus.map((group) => (
+              <section className="grid gap-2.5" key={group.id}>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+                  <h3 className="m-0 text-sm font-extrabold uppercase tracking-normal text-muted-foreground">{group.name}</h3>
+                  <span className="text-xs font-bold text-muted-foreground">
+                    {t(MessageKey.QrItems, { count: group.menus.length })} - #{group.sortOrder}
+                  </span>
                 </div>
-                <div className="grid min-w-0 gap-2">
-                  <strong>{menu.name}</strong>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="break-words text-[13px] font-bold text-muted-foreground">{formatCurrency(menu.price)}</span>
-                    <StatusPill className={menu.isActive ? "bg-secondary text-secondary-foreground" : "bg-red-100 text-red-950"}>
-                      {menu.isActive ? t(MessageKey.Available).toUpperCase() : t(MessageKey.Hidden).toUpperCase()}
-                    </StatusPill>
-                  </div>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-2.5">
+                  {group.menus.map((menu) => (
+                    <article className="grid gap-3 rounded-md border border-border bg-muted/45 p-3" key={menu.id}>
+                      <div className="grid aspect-[4/3] w-full place-items-center overflow-hidden rounded-md border border-border bg-muted font-extrabold text-muted-foreground" aria-label={menu.imageUrl ? menu.name : t(MessageKey.MenusNoImage)}>
+                        {menu.imageUrl ? (
+                          <img className="h-full w-full object-cover" src={menu.imageUrl} alt={menu.name} loading="lazy" />
+                        ) : (
+                          <span>{menu.name[0]}</span>
+                        )}
+                      </div>
+                      <div className="grid min-w-0 gap-2">
+                        <strong>{menu.name}</strong>
+                        <span className="text-[12px] font-bold text-muted-foreground">#{menu.sortOrder}</span>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="break-words text-[13px] font-bold text-muted-foreground">{formatCurrency(menu.price)}</span>
+                          <StatusPill className={menu.isActive && !menu.isOutOfStock ? "bg-secondary text-secondary-foreground" : "bg-red-100 text-red-950"}>
+                            {!menu.isActive ? t(MessageKey.Hidden).toUpperCase() : menu.isOutOfStock ? t(MessageKey.MenusOutOfStockLabel).toUpperCase() : t(MessageKey.Available).toUpperCase()}
+                          </StatusPill>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {menu.isFeatured ? <StatusPill className="bg-primary text-primary-foreground">{t(MessageKey.MenusFeaturedLabel)}</StatusPill> : null}
+                          {menu.isNew ? <StatusPill className="bg-accent text-accent-foreground">{t(MessageKey.MenusNewLabel)}</StatusPill> : null}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2.5 max-[520px]:grid-cols-1">
+                        <Button
+                          type="button"
+                          className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
+                          disabled={busyMenuId === menu.id}
+                          onClick={() => void handleToggleActive(menu)}
+                        >
+                          <EyeOff className="mr-2 h-4 w-4" aria-hidden="true" />
+                          {busyMenuId === menu.id
+                            ? t(MessageKey.Saving)
+                            : menu.isActive
+                              ? t(MessageKey.MenusHideFromQr)
+                              : t(MessageKey.MenusMakeAvailable)}
+                        </Button>
+                        <Button
+                          type="button"
+                          className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
+                          disabled={busyMenuId === menu.id}
+                          onClick={() => void handleToggleStock(menu)}
+                        >
+                          {menu.isOutOfStock ? (
+                            <PackageCheck className="mr-2 h-4 w-4" aria-hidden="true" />
+                          ) : (
+                            <PackageX className="mr-2 h-4 w-4" aria-hidden="true" />
+                          )}
+                          {busyMenuId === menu.id
+                            ? t(MessageKey.Saving)
+                            : menu.isOutOfStock
+                              ? t(MessageKey.MenusMarkInStock)
+                              : t(MessageKey.MenusMarkOutOfStock)}
+                        </Button>
+                        <Button
+                          type="button"
+                          className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
+                          disabled={busyMenuId === menu.id}
+                          onClick={() => {
+                            setFormError(null);
+                            setSuccessMessage(null);
+                            setEditingMenu({
+                              id: menu.id,
+                              name: menu.name,
+                              price: menu.price,
+                              imageUrl: menu.imageUrl ?? "",
+                              imageFile: null,
+                              categoryId: menu.categoryId,
+                              isActive: menu.isActive,
+                              isOutOfStock: menu.isOutOfStock,
+                              isFeatured: menu.isFeatured,
+                              isNew: menu.isNew,
+                              sortOrder: menu.sortOrder
+                            });
+                          }}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
+                          {t(MessageKey.Edit)}
+                        </Button>
+                        {menu.canDelete ? (
+                          <Button
+                            type="button"
+                            className="mt-0 min-h-9 bg-red-600 text-white hover:bg-red-700"
+                            disabled={busyMenuId === menu.id || deleteMenuMutation.isPending}
+                            onClick={() => void handleDelete(menu)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                            {t(MessageKey.Delete)}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </article>
+                  ))}
                 </div>
-                <div className="grid grid-cols-2 gap-2.5 max-[520px]:grid-cols-1">
-                  <Button
-                    type="button"
-                    className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
-                    disabled={busyMenuId === menu.id}
-                    onClick={() => void handleToggleActive(menu)}
-                  >
-                    {busyMenuId === menu.id
-                      ? t(MessageKey.Saving)
-                      : menu.isActive
-                        ? t(MessageKey.MenusHideFromQr)
-                        : t(MessageKey.MenusMakeAvailable)}
-                  </Button>
-                  <Button
-                    type="button"
-                    className="mt-0 min-h-9 bg-secondary text-secondary-foreground hover:bg-accent"
-                    disabled={busyMenuId === menu.id}
-                    onClick={() => {
-                      setFormError(null);
-                      setSuccessMessage(null);
-                      setEditingMenu({
-                        id: menu.id,
-                        name: menu.name,
-                        price: menu.price,
-                        imageUrl: menu.imageUrl ?? "",
-                        imageFile: null,
-                        isActive: menu.isActive
-                      });
-                    }}
-                  >
-                    {t(MessageKey.Edit)}
-                  </Button>
-                  {menu.canDelete ? (
-                    <Button
-                      type="button"
-                      className="mt-0 min-h-9 bg-red-600 text-white hover:bg-red-700"
-                      disabled={busyMenuId === menu.id || deleteMenuMutation.isPending}
-                      onClick={() => void handleDelete(menu)}
-                    >
-                      {t(MessageKey.Delete)}
-                    </Button>
-                  ) : null}
-                </div>
-              </article>
+              </section>
             ))}
           </div>
         ) : null}

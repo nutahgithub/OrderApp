@@ -72,10 +72,15 @@ const branchFixture = (overrides: Partial<Branch> = {}): Branch => ({
 const menuFixture = (overrides: Partial<Menu> = {}): Menu => ({
   id: "menu-1",
   tenantId: "tenant-1",
+  categoryId: null,
   name: "Pho",
   price: new Prisma.Decimal("45000.00"),
   imageUrl: null,
   isActive: true,
+  isOutOfStock: false,
+  isFeatured: false,
+  isNew: false,
+  sortOrder: 0,
   createdAt: new Date("2026-05-13T10:00:00.000Z"),
   updatedAt: new Date("2026-05-13T10:00:00.000Z"),
   ...overrides

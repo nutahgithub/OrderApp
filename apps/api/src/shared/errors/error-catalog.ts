@@ -12,6 +12,7 @@ export const ErrorCode = {
   InvalidOrderCart: "INVALID_ORDER_CART",
   InvalidUpload: "INVALID_UPLOAD",
   InvalidToken: "INVALID_TOKEN",
+  MenuCategoryNotFound: "MENU_CATEGORY_NOT_FOUND",
   MenuInUse: "MENU_IN_USE",
   MenuNotFound: "MENU_NOT_FOUND",
   MissingAuthContext: "MISSING_AUTH_CONTEXT",
@@ -102,6 +103,11 @@ export const errorCatalog = {
     code: ErrorCode.InvalidToken,
     message: "Invalid token",
     statusCode: 401
+  },
+  [ErrorCode.MenuCategoryNotFound]: {
+    code: ErrorCode.MenuCategoryNotFound,
+    message: "Menu category not found",
+    statusCode: 404
   },
   [ErrorCode.MenuInUse]: {
     code: ErrorCode.MenuInUse,

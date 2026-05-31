@@ -41,20 +41,44 @@ const main = async () => {
     }
   });
 
+  const drinksCategory = await prisma.menuCategory.upsert({
+    where: {
+      tenantId_name: {
+        tenantId: tenant.id,
+        name: "Drinks"
+      }
+    },
+    create: {
+      tenantId: tenant.id,
+      name: "Drinks",
+      sortOrder: 1
+    },
+    update: {
+      sortOrder: 1
+    }
+  });
+
   await prisma.menu.upsert({
     where: { id: "demo-menu-1" },
     create: {
       id: "demo-menu-1",
       tenantId: tenant.id,
-      name: "House Coffee",
-      price: "45000",
-      imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93"
-    },
-    update: {
+      categoryId: drinksCategory.id,
       name: "House Coffee",
       price: "45000",
       imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93",
-      isActive: true
+      sortOrder: 1,
+      isFeatured: true
+    },
+    update: {
+      categoryId: drinksCategory.id,
+      name: "House Coffee",
+      price: "45000",
+      imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93",
+      isActive: true,
+      isOutOfStock: false,
+      isFeatured: true,
+      sortOrder: 1
     }
   });
 

@@ -32,6 +32,9 @@ type PendingIdempotencyKey = {
 type MenuPickerCardProps = {
   menu: Menu;
   quantity: number;
+  featuredLabel: string;
+  newLabel: string;
+  outOfStockLabel: string;
   disabled?: boolean;
   onDecrease: () => void;
   onIncrease: () => void;
@@ -55,9 +58,20 @@ const normalizeMenuSearchText = (value: string): string => {
     .toLocaleLowerCase();
 };
 
-const MenuPickerCard = ({ menu, quantity, disabled = false, onDecrease, onIncrease }: MenuPickerCardProps) => {
+const MenuPickerCard = ({
+  disabled = false,
+  featuredLabel,
+  menu,
+  newLabel,
+  onDecrease,
+  onIncrease,
+  outOfStockLabel,
+  quantity
+}: MenuPickerCardProps) => {
+  const isUnavailable = disabled || menu.isOutOfStock;
+
   return (
-    <article className="grid gap-2.5 rounded-md border border-border bg-card p-2.5 shadow-sm">
+    <article className={cn("grid gap-2.5 rounded-md border border-border bg-card p-2.5 shadow-sm", menu.isOutOfStock && "opacity-70")}>
       <div className="grid grid-cols-[64px_minmax(0,1fr)] items-center gap-3">
         <div
           className="grid h-16 w-16 place-items-center overflow-hidden rounded-md border border-border bg-muted text-lg font-extrabold text-muted-foreground"
@@ -71,6 +85,11 @@ const MenuPickerCard = ({ menu, quantity, disabled = false, onDecrease, onIncrea
         </div>
         <div className="grid min-w-0 gap-1">
           <strong className="break-words text-sm leading-snug">{menu.name}</strong>
+          <div className="flex flex-wrap gap-1.5">
+            {menu.isOutOfStock ? <StatusPill className="bg-red-100 text-red-950">{outOfStockLabel}</StatusPill> : null}
+            {menu.isFeatured ? <StatusPill className="bg-primary text-primary-foreground">{featuredLabel}</StatusPill> : null}
+            {menu.isNew ? <StatusPill className="bg-accent text-accent-foreground">{newLabel}</StatusPill> : null}
+          </div>
           <span className="text-sm font-bold text-primary">{formatCurrency(menu.price)}</span>
         </div>
       </div>
@@ -78,7 +97,7 @@ const MenuPickerCard = ({ menu, quantity, disabled = false, onDecrease, onIncrea
         <Button
           type="button"
           className="mt-0 min-h-9 w-9 bg-secondary p-0 text-secondary-foreground hover:bg-accent"
-          disabled={quantity === 0 || disabled}
+          disabled={quantity === 0 || isUnavailable}
           onClick={onDecrease}
         >
           <Minus className="h-4 w-4" aria-hidden="true" />
@@ -87,7 +106,7 @@ const MenuPickerCard = ({ menu, quantity, disabled = false, onDecrease, onIncrea
         <Button
           type="button"
           className="mt-0 min-h-9 w-9 bg-secondary p-0 text-secondary-foreground hover:bg-accent"
-          disabled={disabled}
+          disabled={isUnavailable}
           onClick={onIncrease}
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
@@ -146,9 +165,42 @@ export const AdminTableSalesPage = () => {
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const activeMenus = menus.filter((menu) => menu.isActive);
   const normalizedMenuSearch = normalizeMenuSearchText(menuSearch.trim());
-  const filteredMenus = activeMenus.filter((menu) => {
-    return normalizedMenuSearch === "" || normalizeMenuSearchText(menu.name).includes(normalizedMenuSearch);
-  });
+  const filteredMenus = activeMenus
+    .filter((menu) => {
+      return (
+        normalizedMenuSearch === "" ||
+        normalizeMenuSearchText(menu.name).includes(normalizedMenuSearch) ||
+        normalizeMenuSearchText(menu.categoryName ?? "").includes(normalizedMenuSearch)
+      );
+    })
+    .sort((left, right) => {
+      return (
+        (left.categorySortOrder ?? 9999) - (right.categorySortOrder ?? 9999) ||
+        (left.categoryName ?? t(MessageKey.MenusUncategorized)).localeCompare(
+          right.categoryName ?? t(MessageKey.MenusUncategorized)
+        ) ||
+        left.sortOrder - right.sortOrder ||
+        left.name.localeCompare(right.name)
+      );
+    });
+  const groupedFilteredMenus = useMemo(() => {
+    const groups = new Map<string, { id: string; name: string; sortOrder: number; menus: Menu[] }>();
+
+    filteredMenus.forEach((menu) => {
+      const groupId = menu.categoryId ?? "uncategorized";
+      const group = groups.get(groupId) ?? {
+        id: groupId,
+        name: menu.categoryName ?? t(MessageKey.MenusUncategorized),
+        sortOrder: menu.categorySortOrder ?? 9999,
+        menus: []
+      };
+
+      group.menus.push(menu);
+      groups.set(groupId, group);
+    });
+
+    return [...groups.values()];
+  }, [filteredMenus, t]);
   const selectedOrderCanEdit = selectedOrder?.status !== "PAID" && selectedOrder?.status !== "CANCELLED";
 
   const loadBranches = useCallback(async () => {
@@ -560,16 +612,31 @@ export const AdminTableSalesPage = () => {
                           {activeMenus.length > 0 && filteredMenus.length === 0 ? (
                             <StateMessage title={t(MessageKey.TableSalesNoMenuSearchResults)} />
                           ) : null}
-                          <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2.5">
-                            {filteredMenus.map((menu) => (
-                              <MenuPickerCard
-                                disabled={actionState === "loading"}
-                                key={menu.id}
-                                menu={menu}
-                                quantity={cart[menu.id] ?? 0}
-                                onDecrease={() => updateCart(menu.id, -1)}
-                                onIncrease={() => updateCart(menu.id, 1)}
-                              />
+                          <div className="grid gap-4">
+                            {groupedFilteredMenus.map((group) => (
+                              <section className="grid gap-2.5" key={group.id}>
+                                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+                                  <h4 className="m-0 text-sm font-extrabold uppercase tracking-normal text-muted-foreground">{group.name}</h4>
+                                  <span className="text-xs font-bold text-muted-foreground">
+                                    {t(MessageKey.QrItems, { count: group.menus.length })} - #{group.sortOrder}
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2.5">
+                                  {group.menus.map((menu) => (
+                                    <MenuPickerCard
+                                      disabled={actionState === "loading"}
+                                      featuredLabel={t(MessageKey.MenusFeaturedLabel)}
+                                      key={menu.id}
+                                      menu={menu}
+                                      newLabel={t(MessageKey.MenusNewLabel)}
+                                      outOfStockLabel={t(MessageKey.MenusOutOfStockLabel)}
+                                      quantity={cart[menu.id] ?? 0}
+                                      onDecrease={() => updateCart(menu.id, -1)}
+                                      onIncrease={() => updateCart(menu.id, 1)}
+                                    />
+                                  ))}
+                                </div>
+                              </section>
                             ))}
                           </div>
                           <Button
@@ -605,15 +672,30 @@ export const AdminTableSalesPage = () => {
                     {activeMenus.length > 0 && filteredMenus.length === 0 ? (
                       <StateMessage title={t(MessageKey.TableSalesNoMenuSearchResults)} />
                     ) : null}
-                    <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2.5">
-                      {filteredMenus.map((menu) => (
-                        <MenuPickerCard
-                          key={menu.id}
-                          menu={menu}
-                          quantity={cart[menu.id] ?? 0}
-                          onDecrease={() => updateCart(menu.id, -1)}
-                          onIncrease={() => updateCart(menu.id, 1)}
-                        />
+                    <div className="grid gap-4">
+                      {groupedFilteredMenus.map((group) => (
+                        <section className="grid gap-2.5" key={group.id}>
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+                            <h4 className="m-0 text-sm font-extrabold uppercase tracking-normal text-muted-foreground">{group.name}</h4>
+                            <span className="text-xs font-bold text-muted-foreground">
+                              {t(MessageKey.QrItems, { count: group.menus.length })} - #{group.sortOrder}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2.5">
+                            {group.menus.map((menu) => (
+                              <MenuPickerCard
+                                featuredLabel={t(MessageKey.MenusFeaturedLabel)}
+                                key={menu.id}
+                                menu={menu}
+                                newLabel={t(MessageKey.MenusNewLabel)}
+                                outOfStockLabel={t(MessageKey.MenusOutOfStockLabel)}
+                                quantity={cart[menu.id] ?? 0}
+                                onDecrease={() => updateCart(menu.id, -1)}
+                                onIncrease={() => updateCart(menu.id, 1)}
+                              />
+                            ))}
+                          </div>
+                        </section>
                       ))}
                     </div>
                   </div>

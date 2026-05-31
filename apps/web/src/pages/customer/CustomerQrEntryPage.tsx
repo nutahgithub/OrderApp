@@ -195,7 +195,31 @@ export const CustomerQrEntryPage = () => {
   const { qrEntry } = qrEntryState;
   const isDisabled = qrEntry.table.status === "DISABLED";
   const menus = menusState.status === "success" ? menusState.menus : [];
+  const menuGroups = (() => {
+    const groups = new Map<string, { id: string; name: string; sortOrder: number; menus: Menu[] }>();
+
+    menus.forEach((menu) => {
+      const groupId = menu.categoryId ?? "uncategorized";
+      const group = groups.get(groupId) ?? {
+        id: groupId,
+        name: menu.categoryName ?? t(MessageKey.MenusUncategorized),
+        sortOrder: menu.categorySortOrder ?? 9999,
+        menus: []
+      };
+
+      group.menus.push(menu);
+      groups.set(groupId, group);
+    });
+
+    return [...groups.values()]
+      .map((group) => ({
+        ...group,
+        menus: group.menus.sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name))
+      }))
+      .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name));
+  })();
   const cartItems = menus
+    .filter((menu) => !menu.isOutOfStock)
     .map((menu) => ({
       menu,
       quantity: cart[menu.id] ?? 0
@@ -348,15 +372,24 @@ export const CustomerQrEntryPage = () => {
             <h2 className="m-0 text-base">{t(MessageKey.QrAvailableDishes)}</h2>
             <span className="flex-none text-[13px] font-bold text-muted-foreground">{t(MessageKey.QrItems, { count: menus.length })}</span>
           </div>
-          <div className="mt-[18px] grid gap-2.5">
-            {menus.map((menu) => (
+          <div className="mt-[18px] grid gap-5">
+            {menuGroups.map((group) => (
+              <section className="grid gap-2.5" key={group.id}>
+                <h3 className="m-0 text-sm font-extrabold uppercase tracking-normal text-muted-foreground">{group.name}</h3>
+                {group.menus.map((menu) => (
               <article className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3.5 rounded-md border border-border bg-card p-3 shadow-panel max-[460px]:grid-cols-[72px_minmax(0,1fr)] max-[460px]:items-start" key={menu.id}>
                 <div className="grid h-[72px] w-[72px] flex-none place-items-center overflow-hidden rounded-md border border-border bg-muted font-extrabold text-muted-foreground" aria-label={menu.imageUrl ? menu.name : t(MessageKey.MenusNoImage)}>
                   {menu.imageUrl ? <img className="h-full w-full object-cover" src={menu.imageUrl} alt={menu.name} loading="lazy" /> : <span>{menu.name[0]}</span>}
                 </div>
                 <div className="grid min-w-0 gap-1">
                   <strong>{menu.name}</strong>
-                  <span className="break-words text-[13px] text-muted-foreground">{t(MessageKey.QrAvailableNow)}</span>
+                  <span className="break-words text-[13px] text-muted-foreground">
+                    {menu.isOutOfStock ? t(MessageKey.MenusOutOfStockLabel) : t(MessageKey.QrAvailableNow)}
+                  </span>
+                  <span className="flex flex-wrap gap-1.5">
+                    {menu.isFeatured ? <StatusPill className="bg-primary text-primary-foreground">{t(MessageKey.MenusFeaturedLabel)}</StatusPill> : null}
+                    {menu.isNew ? <StatusPill className="bg-accent text-accent-foreground">{t(MessageKey.MenusNewLabel)}</StatusPill> : null}
+                  </span>
                   <b className="text-primary">{formatCurrency(menu.price)}</b>
                 </div>
                 <div className="inline-grid flex-none grid-cols-[42px_36px_42px] items-center justify-end gap-1.5 max-[460px]:col-span-2 max-[460px]:w-full max-[460px]:justify-end">
@@ -365,7 +398,7 @@ export const CustomerQrEntryPage = () => {
                     className="min-h-[42px] w-[42px] touch-manipulation bg-secondary p-0 text-base text-secondary-foreground hover:bg-accent"
                     aria-label={t(MessageKey.QrDecreaseItem)}
                     onClick={() => updateCart(menu.id, -1)}
-                    disabled={(cart[menu.id] ?? 0) === 0 || orderState.status === "submitting"}
+                    disabled={menu.isOutOfStock || (cart[menu.id] ?? 0) === 0 || orderState.status === "submitting"}
                   >
                     <Minus className="h-4 w-4" aria-hidden="true" />
                   </Button>
@@ -375,12 +408,14 @@ export const CustomerQrEntryPage = () => {
                     className="min-h-[42px] w-[42px] touch-manipulation bg-secondary p-0 text-base text-secondary-foreground hover:bg-accent"
                     aria-label={t(MessageKey.QrIncreaseItem)}
                     onClick={() => updateCart(menu.id, 1)}
-                    disabled={orderState.status === "submitting"}
+                    disabled={menu.isOutOfStock || orderState.status === "submitting"}
                   >
                     <Plus className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </div>
               </article>
+                ))}
+              </section>
             ))}
           </div>
           <Panel className="mt-5 grid gap-3">

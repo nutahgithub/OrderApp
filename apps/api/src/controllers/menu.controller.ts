@@ -1,11 +1,24 @@
 import type { Request, Response } from "express";
 import {
+  createMenuCategorySchema,
   createMenuSchema,
+  menuCategoryParamsSchema,
   menuParamsSchema,
   publicMenuParamsSchema,
+  updateMenuCategorySchema,
   updateMenuSchema
 } from "../schemas/menu.schema.js";
-import { createTenantMenu, deleteTenantMenu, listPublicQrMenus, listTenantMenus, updateTenantMenu } from "../services/menu.service.js";
+import {
+  createTenantMenu,
+  createTenantMenuCategory,
+  deleteTenantMenu,
+  deleteTenantMenuCategory,
+  listPublicQrMenus,
+  listTenantMenuCategories,
+  listTenantMenus,
+  updateTenantMenu,
+  updateTenantMenuCategory
+} from "../services/menu.service.js";
 import { AppError } from "../shared/errors/app-error.js";
 import { ErrorCode } from "../shared/errors/error-catalog.js";
 import { created, ok } from "../shared/http/api-response.js";
@@ -28,10 +41,48 @@ const getAdminId = (request: Request): string => {
 };
 
 export const listMenusController = async (request: Request, response: Response) => {
-  const menus = await listTenantMenus(getTenantId(request));
+  const tenantId = getTenantId(request);
+  const [menus, categories] = await Promise.all([listTenantMenus(tenantId), listTenantMenuCategories(tenantId)]);
 
   ok(response, {
-    menus
+    menus,
+    categories
+  });
+};
+
+export const listMenuCategoriesController = async (request: Request, response: Response) => {
+  const categories = await listTenantMenuCategories(getTenantId(request));
+
+  ok(response, {
+    categories
+  });
+};
+
+export const createMenuCategoryController = async (request: Request, response: Response) => {
+  const input = parseBody(request, createMenuCategorySchema);
+  const category = await createTenantMenuCategory(getTenantId(request), input);
+
+  created(response, {
+    category
+  });
+};
+
+export const updateMenuCategoryController = async (request: Request, response: Response) => {
+  const params = parseParams(request, menuCategoryParamsSchema);
+  const input = parseBody(request, updateMenuCategorySchema);
+  const category = await updateTenantMenuCategory(getTenantId(request), params.categoryId, input);
+
+  ok(response, {
+    category
+  });
+};
+
+export const deleteMenuCategoryController = async (request: Request, response: Response) => {
+  const params = parseParams(request, menuCategoryParamsSchema);
+  await deleteTenantMenuCategory(getTenantId(request), params.categoryId);
+
+  ok(response, {
+    deleted: true
   });
 };
 

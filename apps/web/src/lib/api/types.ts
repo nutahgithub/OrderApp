@@ -298,11 +298,27 @@ export type DashboardReportResponse = {
 export type Menu = {
   id: string;
   tenantId: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  categorySortOrder: number | null;
   name: string;
   price: string;
   imageUrl: string | null;
   isActive: boolean;
+  isOutOfStock: boolean;
+  isFeatured: boolean;
+  isNew: boolean;
+  sortOrder: number;
   canDelete: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MenuCategory = {
+  id: string;
+  tenantId: string;
+  name: string;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -311,22 +327,51 @@ export type MenuFormRequest = {
   name: string;
   price: string;
   imageUrl?: string | null;
+  categoryId?: string | null;
   isActive: boolean;
+  isOutOfStock: boolean;
+  isFeatured: boolean;
+  isNew: boolean;
+  sortOrder: number;
 };
 
 export type CreateMenuRequest = {
   name: string;
   price: string;
   imageUrl?: string | null;
+  categoryId?: string | null;
   isActive?: boolean;
+  isOutOfStock?: boolean;
+  isFeatured?: boolean;
+  isNew?: boolean;
+  sortOrder?: number;
 };
 
 export type ListMenusResponse = {
   menus: Menu[];
+  categories?: MenuCategory[];
 };
 
 export type MenuResponse = {
   menu: Menu;
+};
+
+export type MenuCategoryFormRequest = {
+  name: string;
+  sortOrder: number;
+};
+
+export type CreateMenuCategoryRequest = {
+  name: string;
+  sortOrder?: number;
+};
+
+export type ListMenuCategoriesResponse = {
+  categories: MenuCategory[];
+};
+
+export type MenuCategoryResponse = {
+  category: MenuCategory;
 };
 
 export type DeleteMenuResponse = {

@@ -3,10 +3,15 @@ import { Prisma, TableStatus } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   countMenuOrderItemsByTenant,
+  createMenuCategory,
   createMenu,
+  deleteMenuCategoryByTenant,
   deleteMenuByTenant,
+  findMenuCategoryByTenant,
   listActiveMenusByTenant,
+  listMenuCategoriesByTenant,
   listMenusByTenant,
+  updateMenuCategoryByTenant,
   updateMenuByTenant
 } from "../../repositories/menu.repository.js";
 import { findTableQrEntry } from "../../repositories/table.repository.js";
@@ -22,10 +27,15 @@ vi.mock("../../shared/prisma/client.js", () => ({
 
 vi.mock("../../repositories/menu.repository.js", () => ({
   countMenuOrderItemsByTenant: vi.fn(),
+  createMenuCategory: vi.fn(),
   createMenu: vi.fn(),
+  deleteMenuCategoryByTenant: vi.fn(),
   deleteMenuByTenant: vi.fn(),
+  findMenuCategoryByTenant: vi.fn(),
   listActiveMenusByTenant: vi.fn(),
+  listMenuCategoriesByTenant: vi.fn(),
   listMenusByTenant: vi.fn(),
+  updateMenuCategoryByTenant: vi.fn(),
   updateMenuByTenant: vi.fn()
 }));
 
@@ -40,10 +50,15 @@ vi.mock("../audit-log.service.js", () => ({
 const menuFixture = (overrides: Partial<Menu> = {}): Menu => ({
   id: "menu-1",
   tenantId: "tenant-1",
+  categoryId: null,
   name: "Pho",
   price: new Prisma.Decimal("45000.00"),
   imageUrl: "https://example.com/pho.jpg",
   isActive: true,
+  isOutOfStock: false,
+  isFeatured: false,
+  isNew: false,
+  sortOrder: 0,
   createdAt: new Date("2026-05-13T10:00:00.000Z"),
   updatedAt: new Date("2026-05-13T10:00:00.000Z"),
   ...overrides
@@ -66,7 +81,7 @@ describe("menu service", () => {
   });
 
   it("lists menus inside the tenant scope", async () => {
-    vi.mocked(listMenusByTenant).mockResolvedValue([{ ...menuFixture(), _count: { items: 0 } }]);
+    vi.mocked(listMenusByTenant).mockResolvedValue([{ ...menuFixture(), category: null, _count: { items: 0 } }]);
 
     const result = await listTenantMenus("tenant-1");
 
@@ -95,7 +110,12 @@ describe("menu service", () => {
         name: "Bun Bo",
         price: "55000.00",
         imageUrl: null,
-        isActive: false
+        categoryId: null,
+        isActive: false,
+        isOutOfStock: undefined,
+        isFeatured: undefined,
+        isNew: undefined,
+        sortOrder: 0
       });
     expect(result.price).toBe("55000.00");
   });
@@ -106,7 +126,11 @@ describe("menu service", () => {
     const result = await updateTenantMenu("tenant-1", "menu-1", {
       name: " Iced Coffee ",
       price: "29000.5",
-      isActive: false
+      isActive: false,
+      isOutOfStock: false,
+      isFeatured: false,
+      isNew: false,
+      sortOrder: 0
     });
 
     expect(updateMenuByTenant).toHaveBeenCalledWith(expect.any(Object), {
@@ -115,7 +139,12 @@ describe("menu service", () => {
       name: "Iced Coffee",
       price: "29000.50",
       imageUrl: null,
-      isActive: false
+      categoryId: null,
+      isActive: false,
+      isOutOfStock: false,
+      isFeatured: false,
+      isNew: false,
+      sortOrder: 0
     });
     expect(result.isActive).toBe(false);
   });
@@ -127,7 +156,11 @@ describe("menu service", () => {
       updateTenantMenu("tenant-1", "missing-menu", {
         name: "Tea",
         price: "15000",
-        isActive: true
+        isActive: true,
+        isOutOfStock: false,
+        isFeatured: false,
+        isNew: false,
+        sortOrder: 0
       })
     ).rejects.toMatchObject({
       code: ErrorCode.MenuNotFound
@@ -176,7 +209,10 @@ describe("menu service", () => {
         name: "Main Branch"
       }
     });
-    vi.mocked(listActiveMenusByTenant).mockResolvedValue([menuFixture(), menuFixture({ id: "menu-2", name: "Tea" })]);
+    vi.mocked(listActiveMenusByTenant).mockResolvedValue([
+      { ...menuFixture(), category: null },
+      { ...menuFixture({ id: "menu-2", name: "Tea" }), category: null }
+    ]);
 
     const result = await listPublicQrMenus("tenant-1", "branch-1", "table-1");
 
